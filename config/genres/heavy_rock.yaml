@@ -1,0 +1,30 @@
+id: "Heavy Rock"
+name: "Heavy Rock"
+examples: ["AC/DC", "ZZ Top", "Status Quo"]
+target_lufs: -17
+dynamic_range: medium
+
+frequency_targets:
+  sub_bass:  -5
+  bass:      +2
+  low_mid:    0
+  mid:       +2
+  high_mid:  +2
+  presence:  +1
+  air:       -1
+
+instrument_weights:
+  - label: "Guitar 1"
+    priority: very_high
+  - label: "Guitar 2"
+    priority: very_high
+  - label: "Lead Vocal"
+    priority: high
+  - label: "Bass DI"
+    priority: medium
+  - label: "Kick"
+    priority: medium
+  - label: "Keys"
+    priority: none
+
+notes: "Two guitar blend is critical — watch for frequency masking between Guitar 1 and Guitar 2. Keys typically absent in this genre."

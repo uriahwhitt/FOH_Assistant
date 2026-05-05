@@ -1,0 +1,105 @@
+band: "Nostalgic Knights"
+default_genre: "Glam Metal"
+
+x32:
+  ip: "192.168.0.1"          # confirm at first show — update after --test-osc
+  port: 10023
+  poll_interval_ms: 500
+  keepalive_interval_s: 8
+
+audio:
+  device_name_match: "CABLE Output (VB-Audio Virtual Cable)"
+  preferred_sample_rate: 48000
+  channels: 1
+  buffer_seconds: 2
+
+channels:
+  1:  { label: "Kick",          type: instrument }
+  2:  { label: "Snare",         type: instrument }
+  3:  { label: "Hi-Hat",        type: instrument }
+  4:  { label: "Overhead L",    type: instrument }
+  5:  { label: "Overhead R",    type: instrument }
+  6:
+    label: "Drum Vocal"
+    type: vocal
+    usage: sparse
+    inactive_threshold_db: -35
+    lead_songs: ["Fight for Your Right"]
+    notes: "Sits open all show — active only for FFYR"
+  7:  { label: "Bass DI",       type: instrument }
+  8:
+    label: "Bassist Vocal"
+    type: vocal
+    usage: backup_and_lead
+    inactive_threshold_db: -35
+    lead_songs: ["Kryptonite"]
+    notes: "Tribute to Brad Arnold — mix with care on Kryptonite"
+  9:
+    label: "Guitar 1"
+    type: instrument
+    role: shared_lead_rhythm
+    notes: "Trades lead/solo with Guitar 2 — solo suppression applies to either"
+  10:
+    label: "Guitar 2"
+    type: instrument
+    role: shared_lead_rhythm
+    notes: "Trades lead/solo with Guitar 1 — solo suppression applies to either"
+  11:
+    label: "Keys"
+    type: instrument
+    paired_channel: 12
+    notes: "Muted when Guitar 3 is active"
+  12:
+    label: "Guitar 3"
+    type: instrument
+    paired_channel: 11
+    notes: "Keys player rhythm guitar — muted when Keys active"
+  13:
+    label: "Keys Vocal"
+    type: vocal
+    usage: backup_and_lead
+    inactive_threshold_db: -35
+    lead_songs: []             # TBD — confirm with band
+    notes: "Also sings backup — confirm which songs have keys player on lead"
+  14:
+    label: "Lead Vocal"
+    type: vocal
+    usage: primary_lead
+    priority: very_high
+
+frequency_fingerprints:
+  Kick:           { primary: [60, 80],    secondary: [2000, 5000] }
+  Snare:          { primary: [150, 250],  secondary: [5000, 8000] }
+  Hi-Hat:         { primary: [8000, 12000] }
+  Overhead L:     { primary: [5000, 20000] }
+  Overhead R:     { primary: [5000, 20000] }
+  Guitar 1:       { primary: [200, 5000] }
+  Guitar 2:       { primary: [200, 5000] }
+  Guitar 3:       { primary: [200, 5000] }
+  Bass DI:        { primary: [80, 250],   secondary: [500, 1000] }
+  Keys:           { primary: [200, 8000] }
+  Lead Vocal:     { primary: [300, 4000], secondary: [1000, 4000] }
+  Bassist Vocal:  { primary: [300, 4000] }
+  Drum Vocal:     { primary: [300, 4000] }
+  Keys Vocal:     { primary: [300, 4000] }
+
+band_overrides:
+  global:
+    notes: "Kick consistently runs heavy across all profiles — allow extra weight below 80Hz"
+  AOR:
+    notes: "Keys player runs slightly brighter — allow +1dB air vs template"
+  Heavy Metal:
+    frequency_targets:
+      high_mid: +3          # dial back slightly from template for their guitarist's natural tone
+
+thresholds:
+  recommendation_trigger_db: 3.0      # deviation before recommendation fires
+  lufs_trigger_db: 2.0                # LUFS deviation before overall rec fires
+  baseline_drift_trigger_db: 2.0      # fader drift before drift alert fires
+  rate_of_change_suppress_db: 3.0     # fader move size that triggers suppression
+  rate_of_change_window_s: 5          # window to detect intentional move
+  suppression_duration_s: 60          # how long to suppress after intentional move
+  recommendation_cooldown_s: 60       # min time between recs on same channel
+  adjustment_detect_fader_db: 0.5     # minimum fader change to log as adjustment
+  adjustment_detect_eq_db: 0.5        # minimum EQ gain change to log
+  adjustment_detect_freq_hz: 10       # minimum EQ freq change to log

@@ -1,0 +1,34 @@
+id: "Glam Metal"
+name: "Glam Metal"
+examples: ["Ratt", "Poison", "Mötley Crüe", "Warrant", "Dokken"]
+target_lufs: -18
+dynamic_range: medium
+
+frequency_targets:
+  sub_bass:  -6
+  bass:      +1
+  low_mid:   -1
+  mid:       +1
+  high_mid:  +3
+  presence:  +2
+  air:        0
+
+instrument_weights:
+  - label: "Guitar 1"
+    priority: very_high
+  - label: "Guitar 2"
+    priority: very_high
+  - label: "Lead Vocal"
+    priority: very_high
+  - label: "Kick"
+    priority: medium
+    low_end_target_hz: 80
+    acceptable_weight: medium-high
+  - label: "Bass DI"
+    priority: medium
+  - label: "Keys"
+    priority: low
+  - label: "Snare"
+    priority: medium
+
+notes: "Guitar aggression and pick attack are the defining characteristic — high-mid is intentional. Big vocals compete equally with guitars."

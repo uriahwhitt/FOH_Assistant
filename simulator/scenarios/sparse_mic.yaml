@@ -1,0 +1,23 @@
+name: "Sparse Mic Activation"
+description: "Drum Vocal (ch 6) crosses activity threshold mid-show. Should be flagged as SPARSE_MIC_ACTIVE."
+duration_s: 180
+
+initial_state:
+  channels:
+    6:  { fader_db: -2.0, muted: false }   # Drum Vocal open but quiet
+    9:  { fader_db: -2.0 }
+    14: { fader_db: -1.0 }
+  main_fader_db: 0.0
+
+timeline:
+  - at_s: 60
+    action: fader_move
+    channel: 6
+    target_db: 0.0
+    note: "Drum Vocal becomes active (Fight for Your Right) -- expected"
+
+  - at_s: 120
+    action: fader_move
+    channel: 6
+    target_db: -2.0
+    note: "Drum Vocal returns to background level"

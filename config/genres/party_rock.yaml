@@ -1,0 +1,28 @@
+id: "Party Rock"
+name: "Party Rock"
+examples: ["Beastie Boys", "Twisted Sister", "Quiet Riot", "Slade"]
+target_lufs: -16
+dynamic_range: low-medium
+
+frequency_targets:
+  sub_bass:  -4
+  bass:      +2
+  low_mid:    0
+  mid:       +2
+  high_mid:  +2
+  presence:  +2
+  air:        0
+
+instrument_weights:
+  - label: "Lead Vocal"
+    priority: very_high
+  - label: "Guitar 1"
+    priority: high
+  - label: "Kick"
+    priority: high
+  - label: "Snare"
+    priority: high
+  - label: "Bass DI"
+    priority: medium
+
+notes: "Energy and punch are the priority — loud, fun, present. Drums and vocal lead the mix."

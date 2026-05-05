@@ -1,0 +1,32 @@
+id: "AOR"
+name: "AOR / Melodic Rock"
+examples: ["Journey", "Foreigner", "REO Speedwagon", "Styx", "Boston"]
+target_lufs: -20
+dynamic_range: medium-high
+
+frequency_targets:
+  sub_bass:  -8
+  bass:      +1
+  low_mid:    0
+  mid:       +2
+  high_mid:  +1
+  presence:  +2
+  air:       -1
+
+instrument_weights:
+  - label: "Lead Vocal"
+    priority: very_high
+  - label: "Keys"
+    priority: high
+  - label: "Guitar 1"
+    priority: medium
+  - label: "Guitar 2"
+    priority: medium
+  - label: "Bass DI"
+    priority: medium
+  - label: "Kick"
+    priority: medium
+    low_end_target_hz: 80
+    acceptable_weight: medium
+
+notes: "Optimize for vocal intelligibility above all else. Keys are a full instrument, not texture."

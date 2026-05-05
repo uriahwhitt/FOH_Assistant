@@ -1,0 +1,57 @@
+{
+  "session": {
+    "date": "2026-05-04",
+    "band": "Nostalgic Knights",
+    "mode": "show",
+    "x32_ip": "127.0.0.1",
+    "genre_default": "Glam Metal",
+    "started_at": "14:07:52",
+    "ended_at": "14:07:52"
+  },
+  "events": [
+    {
+      "id": "evt_0001",
+      "timestamp": "21:34:12",
+      "type": "RECOMMENDATION",
+      "channel": "Guitar 1",
+      "channel_num": 9,
+      "genre_profile": "Glam Metal",
+      "issue": "low_mid_buildup",
+      "detail": "low-mid buildup around 250-500Hz detected",
+      "current_state": {
+        "rms": "-12.0dBFS",
+        "fader": "-2.0dB",
+        "eq": "EQ Band 2 +3.0dB @ 315Hz"
+      },
+      "suggestion": "EQ Band 2 cut to +0.0dB @ 315Hz"
+    },
+    {
+      "id": "evt_0002",
+      "timestamp": "14:07:52",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Guitar 1",
+      "channel_num": 9,
+      "parameter": "eq_band_2_gain",
+      "before": 3.0,
+      "after": -0.5,
+      "prior_recommendation_id": "evt_0001",
+      "match_status": "matched",
+      "suggestion_delta": "Applied -3.5dB EQ change on eq_band_2_gain",
+      "lag_seconds": 0.1
+    },
+    {
+      "id": "evt_0003",
+      "timestamp": "14:07:52",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Guitar 2",
+      "channel_num": 10,
+      "parameter": "fader",
+      "before": -3.0,
+      "after": 1.0,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    }
+  ]
+}

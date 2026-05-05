@@ -1,0 +1,30 @@
+id: "Heavy Metal"
+name: "Heavy Metal"
+examples: ["Judas Priest", "Pantera", "Dio", "Iron Maiden"]
+target_lufs: -16
+dynamic_range: low-medium
+
+frequency_targets:
+  sub_bass:  -4
+  bass:      +1
+  low_mid:   -2
+  mid:       +1
+  high_mid:  +4
+  presence:  +2
+  air:       +1
+
+instrument_weights:
+  - label: "Guitar 1"
+    priority: very_high
+  - label: "Kick"
+    priority: very_high
+    low_end_target_hz: 60
+    acceptable_weight: very_high
+  - label: "Lead Vocal"
+    priority: high
+  - label: "Bass DI"
+    priority: medium
+  - label: "Guitar 2"
+    priority: high
+
+notes: "Pantera songs — watch for 800Hz-1kHz mid scoop on Guitar 1 as intentional tone characteristic, not a problem. Tight and precise."

@@ -1,0 +1,28 @@
+id: "Post-Grunge"
+name: "Post-Grunge"
+examples: ["3 Doors Down", "Nickelback", "Creed", "Puddle of Mudd"]
+target_lufs: -17
+dynamic_range: medium
+
+frequency_targets:
+  sub_bass:  -5
+  bass:      +2
+  low_mid:   -1
+  mid:       +2
+  high_mid:  +2
+  presence:  +2
+  air:        0
+
+instrument_weights:
+  - label: "Lead Vocal"
+    priority: very_high
+  - label: "Guitar 1"
+    priority: very_high
+  - label: "Guitar 2"
+    priority: high
+  - label: "Bass DI"
+    priority: medium
+  - label: "Kick"
+    priority: medium
+
+notes: "Vocal clarity is key — heavier than AOR but still vocal-forward. Dense guitar but not as scooped as Heavy Metal."

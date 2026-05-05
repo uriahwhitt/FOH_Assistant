@@ -1,0 +1,13 @@
+name: "Clean Baseline"
+description: "Flat, well-dialed starting state — no recommendations should fire"
+duration_s: 120
+
+initial_state:
+  channels:
+    9:  { fader_db: -2.0, eq: [{band: 1, gain: 0, freq: 80}, {band: 2, gain: 0, freq: 315}, {band: 3, gain: 0, freq: 3000}, {band: 4, gain: 0, freq: 10000}] }
+    10: { fader_db: -3.0, eq: [{band: 1, gain: 0, freq: 80}, {band: 2, gain: 0, freq: 315}, {band: 3, gain: 0, freq: 3000}, {band: 4, gain: 0, freq: 10000}] }
+    14: { fader_db: -1.0 }
+    7:  { fader_db: -4.0 }
+  main_fader_db: 0.0
+
+timeline: []

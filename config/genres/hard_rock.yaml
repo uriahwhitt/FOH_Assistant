@@ -1,0 +1,28 @@
+id: "Hard Rock"
+name: "Hard Rock"
+examples: ["Joan Jett", "early Mötley Crüe", "Cheap Trick", "Heart"]
+target_lufs: -18
+dynamic_range: medium
+
+frequency_targets:
+  sub_bass:  -6
+  bass:      +2
+  low_mid:   -1
+  mid:       +2
+  high_mid:  +2
+  presence:  +1
+  air:       -1
+
+instrument_weights:
+  - label: "Guitar 1"
+    priority: very_high
+  - label: "Lead Vocal"
+    priority: high
+  - label: "Bass DI"
+    priority: medium
+  - label: "Kick"
+    priority: medium
+  - label: "Keys"
+    priority: low
+
+notes: "Raw, punchy, rhythm-driven — less polish than AOR. Guitar dominates."

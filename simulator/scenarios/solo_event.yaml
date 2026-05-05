@@ -1,0 +1,23 @@
+name: "Solo Event"
+description: "Fast fader spike on Guitar 1 — rate-of-change suppression should fire. No recommendation should fire during the solo window."
+duration_s: 120
+
+initial_state:
+  channels:
+    9:  { fader_db: -2.0 }
+    10: { fader_db: -3.0 }
+    14: { fader_db: -1.0 }
+  main_fader_db: 0.0
+
+timeline:
+  - at_s: 30
+    action: fader_move
+    channel: 9
+    target_db: 4.0
+    note: "Guitar 1 solo boost (+6dB in < 5s) -- suppression should activate"
+
+  - at_s: 60
+    action: fader_move
+    channel: 9
+    target_db: -2.0
+    note: "Solo ends -- Guitar 1 returns to normal"

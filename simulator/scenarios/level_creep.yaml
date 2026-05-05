@@ -1,0 +1,39 @@
+name: "Gradual Level Creep"
+description: "Guitar 1 and 2 faders drift up over 5 minutes, then Guitar 1 gets a low-mid EQ boost. Overall LUFS exceeds target."
+duration_s: 300
+
+initial_state:
+  channels:
+    9:  { fader_db: -2.0, eq: [{band: 1, gain: 0, freq: 80}, {band: 2, gain: 1.5, freq: 315}, {band: 3, gain: 0, freq: 3000}, {band: 4, gain: 0, freq: 10000}] }
+    10: { fader_db: -2.0 }
+    14: { fader_db: -1.0 }
+    7:  { fader_db: -4.0 }
+  main_fader_db: 0.0
+
+timeline:
+  - at_s: 60
+    action: fader_drift
+    channel: 9
+    target_db: 0.5
+    over_s: 60
+    note: "Guitar 1 creeping up"
+
+  - at_s: 120
+    action: fader_drift
+    channel: 10
+    target_db: 1.0
+    over_s: 90
+    note: "Guitar 2 following"
+
+  - at_s: 200
+    action: eq_change
+    channel: 9
+    band: 2
+    gain_db: 3.5
+    note: "Low-mid boost added on Guitar 1 -- should trigger recommendation"
+
+  - at_s: 250
+    action: fader_move
+    channel: 9
+    target_db: 5.0
+    note: "Simulate solo boost -- should trigger rate-of-change suppression"
