@@ -5,58 +5,43 @@
     "mode": "show",
     "x32_ip": "127.0.0.1",
     "genre_default": "Glam Metal",
-    "started_at": "09:33:27",
-    "ended_at": "09:37:56"
+    "started_at": "10:55:40",
+    "ended_at": "10:57:08"
   },
   "events": [
     {
       "id": "evt_0001",
-      "timestamp": "09:33:27",
+      "timestamp": "10:55:40",
       "type": "RECOMMENDATION",
       "channel": null,
       "channel_num": null,
       "genre_profile": "Glam Metal",
       "issue": "lufs_low",
-      "detail": "Integrated LUFS 4.2dB low vs Glam Metal target (-18 LUFS)",
+      "detail": "Integrated LUFS 7.8dB low vs Glam Metal target (-18 LUFS)",
       "current_state": {
-        "lufs": "-22.2",
+        "lufs": "-25.8",
         "target": "-18.0"
       },
       "suggestion": "Main bus may be conservative \u2014 check fader levels"
     },
     {
       "id": "evt_0002",
-      "timestamp": "09:33:27",
+      "timestamp": "10:55:40",
       "type": "RECOMMENDATION",
       "channel": "Bass",
       "channel_num": 13,
       "genre_profile": "Glam Metal",
-      "issue": "sub_bass_buildup",
-      "detail": "sub-bass buildup around 20-80Hz detected",
-      "current_state": {
-        "rms": "-12.0dBFS",
-        "fader": "-5.0dB"
-      },
-      "suggestion": "HPF \u2014 Add EQ point on Bass in the 20-80Hz range (cut ~50Hz)"
-    },
-    {
-      "id": "evt_0003",
-      "timestamp": "09:33:27",
-      "type": "RECOMMENDATION",
-      "channel": "Keys",
-      "channel_num": 15,
-      "genre_profile": "Glam Metal",
-      "issue": "bass_buildup",
-      "detail": "bass buildup around 80-250Hz detected",
+      "issue": "sub_bass_deficiency",
+      "detail": "sub-bass deficiency around 20-80Hz detected",
       "current_state": {
         "rms": "-11.4dBFS",
         "fader": "-3.0dB"
       },
-      "suggestion": "Add EQ point on Keys in the 80-250Hz range (cut ~165Hz)"
+      "suggestion": "Move Band 1 (currently 1000Hz, +0.0dB) to 50Hz and boost"
     },
     {
-      "id": "evt_0004",
-      "timestamp": "09:33:27",
+      "id": "evt_0003",
+      "timestamp": "10:55:40",
       "type": "RECOMMENDATION",
       "channel": "Lead Vocal",
       "channel_num": 9,
@@ -64,60 +49,31 @@
       "issue": "low_mid_buildup",
       "detail": "low-mid buildup around 250-500Hz detected",
       "current_state": {
-        "rms": "-11.1dBFS",
-        "fader": "-2.0dB",
-        "eq": "EQ Band 2 +0.0dB @ 315Hz"
+        "rms": "-10.7dBFS",
+        "fader": "-1.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
       },
-      "suggestion": "Mud cut \u2014 EQ Band 2 cut to -3.0dB @ 315Hz | Q=0.7 is very broad for a cut \u2014 consider Q\u22482.0 for focused correction"
+      "suggestion": "Honk cut \u2014 EQ Band 1 cut to -3.0dB @ 1000Hz | Band 1 is at 1000Hz \u2014 move to 375Hz first | Q=0.7 is very broad for a cut \u2014 consider Q\u22482.0 for focused correction"
+    },
+    {
+      "id": "evt_0004",
+      "timestamp": "10:55:40",
+      "type": "RECOMMENDATION",
+      "channel": "Lead Vocal",
+      "channel_num": 9,
+      "genre_profile": "Glam Metal",
+      "issue": "mid_buildup",
+      "detail": "mid buildup around 500-2000Hz detected",
+      "current_state": {
+        "rms": "-10.7dBFS",
+        "fader": "-1.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "Honk cut \u2014 EQ Band 1 cut to -3.0dB @ 1000Hz | Q=0.7 is very broad for a cut \u2014 consider Q\u22482.0 for focused correction"
     },
     {
       "id": "evt_0005",
-      "timestamp": "09:33:27",
-      "type": "RECOMMENDATION",
-      "channel": "Acoustic Guitar",
-      "channel_num": 6,
-      "genre_profile": "Glam Metal",
-      "issue": "presence_deficiency",
-      "detail": "presence deficiency around 6000-12000Hz detected",
-      "current_state": {
-        "rms": "-14.0dBFS",
-        "fader": "-10.0dB"
-      },
-      "suggestion": "Add EQ point on Acoustic Guitar in the 6000-12000Hz range (boost ~9000Hz)"
-    },
-    {
-      "id": "evt_0006",
-      "timestamp": "09:34:27",
-      "type": "RECOMMENDATION",
-      "channel": "Bass",
-      "channel_num": 13,
-      "genre_profile": "Glam Metal",
-      "issue": "sub_bass_buildup",
-      "detail": "sub-bass buildup around 20-80Hz detected",
-      "current_state": {
-        "rms": "-12.0dBFS",
-        "fader": "-5.0dB"
-      },
-      "suggestion": "HPF \u2014 Add EQ point on Bass in the 20-80Hz range (cut ~50Hz)"
-    },
-    {
-      "id": "evt_0007",
-      "timestamp": "09:34:27",
-      "type": "RECOMMENDATION",
-      "channel": "Keys",
-      "channel_num": 15,
-      "genre_profile": "Glam Metal",
-      "issue": "bass_buildup",
-      "detail": "bass buildup around 80-250Hz detected",
-      "current_state": {
-        "rms": "-11.4dBFS",
-        "fader": "-3.0dB"
-      },
-      "suggestion": "Add EQ point on Keys in the 80-250Hz range (cut ~165Hz)"
-    },
-    {
-      "id": "evt_0008",
-      "timestamp": "09:34:27",
+      "timestamp": "10:55:40",
       "type": "RECOMMENDATION",
       "channel": "Lead Vocal",
       "channel_num": 9,
@@ -125,15 +81,15 @@
       "issue": "high_mid_deficiency",
       "detail": "high-mid deficiency around 2000-6000Hz detected",
       "current_state": {
-        "rms": "-11.1dBFS",
-        "fader": "-2.0dB",
-        "eq": "EQ Band 3 +0.0dB @ 2500Hz"
+        "rms": "-10.7dBFS",
+        "fader": "-1.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
       },
-      "suggestion": "Presence boost \u2014 EQ Band 3 boost to +3.0dB @ 2500Hz"
+      "suggestion": "EQ Band 1 boost to +3.0dB @ 1000Hz | Band 1 is at 1000Hz \u2014 move to 4000Hz first"
     },
     {
-      "id": "evt_0009",
-      "timestamp": "09:34:27",
+      "id": "evt_0006",
+      "timestamp": "10:55:40",
       "type": "RECOMMENDATION",
       "channel": "Acoustic Guitar",
       "channel_num": 6,
@@ -141,89 +97,89 @@
       "issue": "presence_deficiency",
       "detail": "presence deficiency around 6000-12000Hz detected",
       "current_state": {
-        "rms": "-14.0dBFS",
-        "fader": "-10.0dB"
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
       },
-      "suggestion": "Add EQ point on Acoustic Guitar in the 6000-12000Hz range (boost ~9000Hz)"
+      "suggestion": "Move Band 1 (currently 1000Hz, +0.0dB) to 9000Hz and boost"
+    },
+    {
+      "id": "evt_0007",
+      "timestamp": "10:55:40",
+      "type": "RECOMMENDATION",
+      "channel": "Acoustic Guitar",
+      "channel_num": 6,
+      "genre_profile": "Glam Metal",
+      "issue": "air_deficiency",
+      "detail": "air deficiency around 12000-20000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Move Band 1 (currently 1000Hz, +0.0dB) to 16000Hz and boost"
+    },
+    {
+      "id": "evt_0008",
+      "timestamp": "10:55:41",
+      "type": "RECOMMENDATION",
+      "channel": "Bass",
+      "channel_num": 13,
+      "genre_profile": "Glam Metal",
+      "issue": "bass_buildup",
+      "detail": "bass buildup around 80-250Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Move Band 1 (currently 1000Hz, +0.0dB) to 165Hz and cut"
+    },
+    {
+      "id": "evt_0009",
+      "timestamp": "10:55:49",
+      "type": "RECOMMENDATION",
+      "channel": "Bass",
+      "channel_num": 13,
+      "genre_profile": "Glam Metal",
+      "issue": "sub_bass_buildup",
+      "detail": "sub-bass buildup around 20-80Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Move Band 1 (currently 1000Hz, +0.0dB) to 50Hz and cut"
     },
     {
       "id": "evt_0010",
-      "timestamp": "09:34:46",
-      "type": "RECOMMENDATION",
-      "channel": null,
-      "channel_num": null,
-      "genre_profile": "Glam Metal",
-      "issue": "lufs_low",
-      "detail": "Integrated LUFS 2.5dB low vs Glam Metal target (-18 LUFS)",
-      "current_state": {
-        "lufs": "-20.5",
-        "target": "-18.0"
-      },
-      "suggestion": "Main bus may be conservative \u2014 check fader levels"
-    },
-    {
-      "id": "evt_0011",
-      "timestamp": "09:35:20",
+      "timestamp": "10:56:37",
       "type": "MANUAL_ADJUSTMENT",
-      "channel": "Guitar 1",
-      "channel_num": 7,
+      "channel": "Drum Vocal",
+      "channel_num": 10,
       "parameter": "fader",
-      "before": -4.0,
-      "after": -3.49,
+      "before": -70.29,
+      "after": -2.0,
       "prior_recommendation_id": null,
       "match_status": "engineer_initiated",
       "suggestion_delta": null,
       "lag_seconds": null
     },
     {
-      "id": "evt_0012",
-      "timestamp": "09:35:27",
-      "type": "RECOMMENDATION",
-      "channel": "Bass",
-      "channel_num": 13,
-      "genre_profile": "Glam Metal",
-      "issue": "sub_bass_buildup",
-      "detail": "sub-bass buildup around 20-80Hz detected",
-      "current_state": {
-        "rms": "-12.0dBFS",
-        "fader": "-5.0dB"
-      },
-      "suggestion": "HPF \u2014 Add EQ point on Bass in the 20-80Hz range (cut ~50Hz)"
-    },
-    {
-      "id": "evt_0013",
-      "timestamp": "09:35:27",
-      "type": "RECOMMENDATION",
-      "channel": "Keys",
-      "channel_num": 15,
-      "genre_profile": "Glam Metal",
-      "issue": "bass_buildup",
-      "detail": "bass buildup around 80-250Hz detected",
-      "current_state": {
-        "rms": "-11.4dBFS",
-        "fader": "-3.0dB"
-      },
-      "suggestion": "Add EQ point on Keys in the 80-250Hz range (cut ~165Hz)"
-    },
-    {
-      "id": "evt_0014",
-      "timestamp": "09:35:27",
+      "id": "evt_0011",
+      "timestamp": "10:56:40",
       "type": "RECOMMENDATION",
       "channel": "Lead Vocal",
       "channel_num": 9,
       "genre_profile": "Glam Metal",
-      "issue": "low_mid_buildup",
-      "detail": "low-mid buildup around 250-500Hz detected",
+      "issue": "high_mid_deficiency",
+      "detail": "high-mid deficiency around 2000-6000Hz detected",
       "current_state": {
-        "rms": "-11.1dBFS",
-        "fader": "-2.0dB",
-        "eq": "EQ Band 2 +0.0dB @ 315Hz"
+        "rms": "-10.7dBFS",
+        "fader": "-1.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
       },
-      "suggestion": "Mud cut \u2014 EQ Band 2 cut to -3.0dB @ 315Hz | Q=0.7 is very broad for a cut \u2014 consider Q\u22482.0 for focused correction"
+      "suggestion": "EQ Band 1 boost to +3.0dB @ 1000Hz | Band 1 is at 1000Hz \u2014 move to 4000Hz first"
     },
     {
-      "id": "evt_0015",
-      "timestamp": "09:35:27",
+      "id": "evt_0012",
+      "timestamp": "10:56:40",
       "type": "RECOMMENDATION",
       "channel": "Acoustic Guitar",
       "channel_num": 6,
@@ -231,161 +187,86 @@
       "issue": "presence_deficiency",
       "detail": "presence deficiency around 6000-12000Hz detected",
       "current_state": {
-        "rms": "-14.0dBFS",
-        "fader": "-10.0dB"
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
       },
-      "suggestion": "Add EQ point on Acoustic Guitar in the 6000-12000Hz range (boost ~9000Hz)"
+      "suggestion": "Move Band 1 (currently 1000Hz, +0.0dB) to 9000Hz and boost"
+    },
+    {
+      "id": "evt_0013",
+      "timestamp": "10:56:40",
+      "type": "RECOMMENDATION",
+      "channel": "Acoustic Guitar",
+      "channel_num": 6,
+      "genre_profile": "Glam Metal",
+      "issue": "air_deficiency",
+      "detail": "air deficiency around 12000-20000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Move Band 1 (currently 1000Hz, +0.0dB) to 16000Hz and boost"
+    },
+    {
+      "id": "evt_0014",
+      "timestamp": "10:56:41",
+      "type": "RECOMMENDATION",
+      "channel": "Bass",
+      "channel_num": 13,
+      "genre_profile": "Glam Metal",
+      "issue": "bass_buildup",
+      "detail": "bass buildup around 80-250Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Move Band 1 (currently 1000Hz, +0.0dB) to 165Hz and cut"
+    },
+    {
+      "id": "evt_0015",
+      "timestamp": "10:56:42",
+      "type": "RECOMMENDATION",
+      "channel": "Lead Vocal",
+      "channel_num": 9,
+      "genre_profile": "Glam Metal",
+      "issue": "low_mid_buildup",
+      "detail": "low-mid buildup around 250-500Hz detected",
+      "current_state": {
+        "rms": "-10.7dBFS",
+        "fader": "-1.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "Honk cut \u2014 EQ Band 1 cut to -3.0dB @ 1000Hz | Band 1 is at 1000Hz \u2014 move to 375Hz first | Q=0.7 is very broad for a cut \u2014 consider Q\u22482.0 for focused correction"
     },
     {
       "id": "evt_0016",
-      "timestamp": "09:35:46",
+      "timestamp": "10:56:49",
+      "type": "RECOMMENDATION",
+      "channel": "Bass",
+      "channel_num": 13,
+      "genre_profile": "Glam Metal",
+      "issue": "sub_bass_buildup",
+      "detail": "sub-bass buildup around 20-80Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Move Band 1 (currently 1000Hz, +0.0dB) to 50Hz and cut"
+    },
+    {
+      "id": "evt_0017",
+      "timestamp": "10:57:04",
       "type": "RECOMMENDATION",
       "channel": null,
       "channel_num": null,
       "genre_profile": "Glam Metal",
       "issue": "lufs_low",
-      "detail": "Integrated LUFS 2.6dB low vs Glam Metal target (-18 LUFS)",
+      "detail": "Integrated LUFS 2.9dB low vs Glam Metal target (-18 LUFS)",
       "current_state": {
-        "lufs": "-20.6",
+        "lufs": "-20.9",
         "target": "-18.0"
       },
       "suggestion": "Main bus may be conservative \u2014 check fader levels"
-    },
-    {
-      "id": "evt_0017",
-      "timestamp": "09:36:20",
-      "type": "MANUAL_ADJUSTMENT",
-      "channel": "Lead Vocal",
-      "channel_num": 9,
-      "parameter": "fader",
-      "before": -2.0,
-      "after": -2.51,
-      "prior_recommendation_id": "evt_0014",
-      "match_status": "partial",
-      "suggestion_delta": "Parameter type differs from recommendation",
-      "lag_seconds": 53.0
-    },
-    {
-      "id": "evt_0018",
-      "timestamp": "09:36:27",
-      "type": "RECOMMENDATION",
-      "channel": "Bass",
-      "channel_num": 13,
-      "genre_profile": "Glam Metal",
-      "issue": "sub_bass_buildup",
-      "detail": "sub-bass buildup around 20-80Hz detected",
-      "current_state": {
-        "rms": "-12.0dBFS",
-        "fader": "-5.0dB"
-      },
-      "suggestion": "HPF \u2014 Add EQ point on Bass in the 20-80Hz range (cut ~50Hz)"
-    },
-    {
-      "id": "evt_0019",
-      "timestamp": "09:36:27",
-      "type": "RECOMMENDATION",
-      "channel": "Keys",
-      "channel_num": 15,
-      "genre_profile": "Glam Metal",
-      "issue": "bass_buildup",
-      "detail": "bass buildup around 80-250Hz detected",
-      "current_state": {
-        "rms": "-11.4dBFS",
-        "fader": "-3.0dB"
-      },
-      "suggestion": "Add EQ point on Keys in the 80-250Hz range (cut ~165Hz)"
-    },
-    {
-      "id": "evt_0020",
-      "timestamp": "09:36:27",
-      "type": "RECOMMENDATION",
-      "channel": "Lead Vocal",
-      "channel_num": 9,
-      "genre_profile": "Glam Metal",
-      "issue": "high_mid_deficiency",
-      "detail": "high-mid deficiency around 2000-6000Hz detected",
-      "current_state": {
-        "rms": "-11.2dBFS",
-        "fader": "-2.5dB",
-        "eq": "EQ Band 3 +0.0dB @ 2500Hz"
-      },
-      "suggestion": "Presence boost \u2014 EQ Band 3 boost to +3.0dB @ 2500Hz"
-    },
-    {
-      "id": "evt_0021",
-      "timestamp": "09:36:27",
-      "type": "RECOMMENDATION",
-      "channel": "Acoustic Guitar",
-      "channel_num": 6,
-      "genre_profile": "Glam Metal",
-      "issue": "air_deficiency",
-      "detail": "air deficiency around 12000-20000Hz detected",
-      "current_state": {
-        "rms": "-14.0dBFS",
-        "fader": "-10.0dB"
-      },
-      "suggestion": "Air boost \u2014 Add EQ point on Acoustic Guitar in the 12000-20000Hz range (boost ~16000Hz)"
-    },
-    {
-      "id": "evt_0022",
-      "timestamp": "09:37:27",
-      "type": "RECOMMENDATION",
-      "channel": "Bass",
-      "channel_num": 13,
-      "genre_profile": "Glam Metal",
-      "issue": "sub_bass_buildup",
-      "detail": "sub-bass buildup around 20-80Hz detected",
-      "current_state": {
-        "rms": "-12.0dBFS",
-        "fader": "-5.0dB"
-      },
-      "suggestion": "HPF \u2014 Add EQ point on Bass in the 20-80Hz range (cut ~50Hz)"
-    },
-    {
-      "id": "evt_0023",
-      "timestamp": "09:37:27",
-      "type": "RECOMMENDATION",
-      "channel": "Keys",
-      "channel_num": 15,
-      "genre_profile": "Glam Metal",
-      "issue": "bass_buildup",
-      "detail": "bass buildup around 80-250Hz detected",
-      "current_state": {
-        "rms": "-11.4dBFS",
-        "fader": "-3.0dB"
-      },
-      "suggestion": "Add EQ point on Keys in the 80-250Hz range (cut ~165Hz)"
-    },
-    {
-      "id": "evt_0024",
-      "timestamp": "09:37:27",
-      "type": "RECOMMENDATION",
-      "channel": "Lead Vocal",
-      "channel_num": 9,
-      "genre_profile": "Glam Metal",
-      "issue": "high_mid_deficiency",
-      "detail": "high-mid deficiency around 2000-6000Hz detected",
-      "current_state": {
-        "rms": "-11.2dBFS",
-        "fader": "-2.5dB",
-        "eq": "EQ Band 3 +0.0dB @ 2500Hz"
-      },
-      "suggestion": "Presence boost \u2014 EQ Band 3 boost to +3.0dB @ 2500Hz"
-    },
-    {
-      "id": "evt_0025",
-      "timestamp": "09:37:27",
-      "type": "RECOMMENDATION",
-      "channel": "Acoustic Guitar",
-      "channel_num": 6,
-      "genre_profile": "Glam Metal",
-      "issue": "air_deficiency",
-      "detail": "air deficiency around 12000-20000Hz detected",
-      "current_state": {
-        "rms": "-14.0dBFS",
-        "fader": "-10.0dB"
-      },
-      "suggestion": "Air boost \u2014 Add EQ point on Acoustic Guitar in the 12000-20000Hz range (boost ~16000Hz)"
     }
   ]
 }

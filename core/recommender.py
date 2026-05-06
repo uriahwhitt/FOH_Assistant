@@ -36,9 +36,14 @@ NAMED_MOVES = [
 ]
 
 
-def _named_move(freq_hz: float, direction: str) -> str:
+_HPF_SUPPRESS_LABELS = {"Bass", "Kick"}
+
+
+def _named_move(freq_hz: float, direction: str, channel_label: str = "") -> str:
     for lo, hi, move_dir, name in NAMED_MOVES:
         if lo <= freq_hz <= hi and move_dir == direction:
+            if name == "HPF" and channel_label in _HPF_SUPPRESS_LABELS:
+                return ""
             return name
     return ""
 
@@ -131,6 +136,9 @@ class RecommendationEngine:
         # Keyed on (ch_num, issue_string) e.g. (7, "mid_buildup").
         self._consecutive_fires: dict[tuple[int, str], int] = {}
         self._issue_cooldown: dict[tuple[int, str], float] = {}
+        # Per-issue last recommendation timestamp (separate from _last_rec to avoid
+        # cross-issue timestamp contamination on the same channel).
+        self._last_issue_rec: dict[tuple[int, str], float] = {}
         # Issues active in the previous _check_bands cycle — used to detect resolution.
         self._prev_active_issues: set[tuple[int, str]] = set()
 
@@ -148,6 +156,11 @@ class RecommendationEngine:
 
     def set_genre(self, profile: GenreProfile) -> None:
         self._genre = profile
+        # Reset stability guard — genre change invalidates prior stability history
+        self._consecutive_fires.clear()
+        self._issue_cooldown.clear()
+        self._last_issue_rec.clear()
+        self._prev_active_issues.clear()
 
     def set_baseline(self, snapshot: dict[int, ChannelState]) -> None:
         self._baseline = snapshot
@@ -181,6 +194,9 @@ class RecommendationEngine:
         for key in keys:
             del self._consecutive_fires[key]
             self._issue_cooldown.pop(key, None)
+        keys_to_clear = [k for k in self._last_issue_rec if k[0] == ch_num]
+        for k in keys_to_clear:
+            del self._last_issue_rec[k]
 
     def evaluate(self, analysis: RoomAnalysis,
                  channels: dict[int, ChannelState]) -> list[Recommendation]:
@@ -314,6 +330,7 @@ class RecommendationEngine:
                 current["eq"] = eq_detail
 
             self._last_rec[culprit.channel_num] = now
+            self._last_issue_rec[(culprit.channel_num, issue)] = now
             self._update_stability(culprit.channel_num, issue)
             recs.append(Recommendation(
                 channel_num=culprit.channel_num,
@@ -453,7 +470,7 @@ class RecommendationEngine:
         """Like _cooldown_ok but uses the per-issue effective cooldown (stability guard)."""
         base = self._thresholds.get("recommendation_cooldown_s", 60.0)
         effective = self._issue_cooldown.get((ch_num, issue), base)
-        last = self._last_rec.get(ch_num, 0)
+        last = self._last_issue_rec.get((ch_num, issue), 0)
         return (now - last) >= effective
 
     def _update_stability(self, ch_num: int, issue: str) -> None:
@@ -547,12 +564,15 @@ class RecommendationEngine:
 
         if best_band is None:
             action = "cut" if deviation > 0 else "boost"
-            suggest = (f"Add EQ point on {ch.label} in the {lo}-{hi}Hz range "
-                       f"({action} ~{mid_freq}Hz)")
-            name = _named_move(mid_freq, direction)
-            if name:
-                suggest = f"{name} — {suggest}"
-            return "", suggest
+            non_filter_bands = [b for b in ch.eq if b.type not in (0, 5)]
+            if non_filter_bands:
+                candidate = min(non_filter_bands, key=lambda b: abs(b.gain_db))
+                return "", (
+                    f"Move Band {candidate.band_num} "
+                    f"(currently {candidate.freq_hz:.0f}Hz, {candidate.gain_db:+.1f}dB) "
+                    f"to {mid_freq}Hz and {action}"
+                )
+            return "", f"Add EQ {action} in {lo}-{hi}Hz range (target ~{mid_freq}Hz)"
 
         eq_detail = (f"EQ Band {best_band.band_num} {best_band.gain_db:+.1f}dB "
                      f"@ {best_band.freq_hz:.0f}Hz")
@@ -567,7 +587,7 @@ class RecommendationEngine:
                         f"{new_gain:+.1f}dB @ {best_band.freq_hz:.0f}Hz")
 
         # IMP-023a — prepend named move
-        name = _named_move(best_band.freq_hz, direction)
+        name = _named_move(best_band.freq_hz, direction, ch.label)
         if name:
             suggest = f"{name} — {suggest}"
 

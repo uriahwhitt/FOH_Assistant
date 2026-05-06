@@ -12,12 +12,12 @@ initial_state:
 timeline:
   - at_s: 30
     action: fader_move
-    channel: 9
+    channel: 7
     target_db: 4.0
     note: "Guitar 1 solo boost (+6dB in < 5s) -- suppression should activate"
 
   - at_s: 60
     action: fader_move
-    channel: 9
+    channel: 7
     target_db: -2.0
     note: "Solo ends -- Guitar 1 returns to normal"

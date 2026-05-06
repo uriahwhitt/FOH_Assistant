@@ -9,21 +9,21 @@ duration_s: 180
 
 initial_state:
   channels:
-    6:  { fader_db: -70.0, muted: false }  # Drum Vocal: fader-approx RMS ≈ -36 dBFS (below -35 threshold)
-    9:  { fader_db: -2.0 }                  # Guitar 1
-    10: { fader_db: -3.0 }                  # Guitar 2
-    14: { fader_db: -1.0 }                  # Lead Vocal
+    10: { fader_db: -70.0, muted: false }  # Drum Vocal: fader-approx RMS ≈ -36 dBFS (below -35 threshold)
+    7:  { fader_db: -2.0 }                  # Guitar 1
+    8:  { fader_db: -3.0 }                  # Guitar 2
+    9:  { fader_db: -1.0 }                  # Lead Vocal
   main_fader_db: 0.0
 
 timeline:
   - at_s: 60
     action: fader_move
-    channel: 6
+    channel: 10
     target_db: -2.0
     note: "Drum Vocal becomes active (Fight for Your Right) — expected, channel crosses threshold"
 
   - at_s: 120
     action: fader_move
-    channel: 6
+    channel: 10
     target_db: -70.0
     note: "Drum Vocal returns below activity threshold — song over"

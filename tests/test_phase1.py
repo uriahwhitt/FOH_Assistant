@@ -710,8 +710,8 @@ class TestRecommendationEngine:
 
         eq_detail, suggestion = engine._eq_recommendation(ch, "high_mid", 4.0)
         assert eq_detail == ""
-        assert "Add EQ point" in suggestion
-        assert "2000-6000" in suggestion
+        # Fix D: non-filter bands exist → suggests "Move Band" instead of "Add EQ point"
+        assert "Move Band" in suggestion
         assert "cut" in suggestion           # deviation > 0
 
     def test_eq_band_outside_2_octaves_boost_suggestion(self):
@@ -740,7 +740,7 @@ class TestRecommendationEngine:
     def test_eq_lcut_hcut_bands_excluded_from_selection(self):
         engine = self._engine()
         ch = _make_channel(num=1, label="Kick", rms_db=-20.0)
-        # All bands are LCut (type=0) or HCut (type=5) — should suggest adding EQ
+        # All bands are LCut (type=0) or HCut (type=5) — no non-filter bands to repurpose
         ch.eq[0] = EQBand(band_num=1, type=0, freq_hz=1000.0, gain_db=0.0, q=0.7)
         ch.eq[1] = EQBand(band_num=2, type=5, freq_hz=1200.0, gain_db=0.0, q=0.7)
         ch.eq[2] = EQBand(band_num=3, type=0, freq_hz=1100.0, gain_db=0.0, q=0.7)
@@ -748,7 +748,9 @@ class TestRecommendationEngine:
 
         eq_detail, suggestion = engine._eq_recommendation(ch, "mid", 4.0)
         assert eq_detail == ""
-        assert "Add EQ point" in suggestion
+        # Fix D: no non-filter bands → generic fallback starts with "Add EQ"
+        assert "Add EQ" in suggestion
+        assert "Move Band" not in suggestion
 
 
 # ===========================================================================
@@ -1298,7 +1300,7 @@ class TestStabilityGuard:
         engine._update_stability(ch, issue)
         engine._update_stability(ch, issue)
         # Still base cooldown after 2 fires
-        engine._last_rec[ch] = 100.0
+        engine._last_issue_rec[(ch, issue)] = 100.0
         assert engine._issue_cooldown_ok(ch, issue, 160.0), "Should pass after 60 s with base cooldown"
 
     def test_third_fire_doubles_cooldown(self):
@@ -1306,7 +1308,7 @@ class TestStabilityGuard:
         ch, issue = 1, "mid_buildup"
         for _ in range(3):
             engine._update_stability(ch, issue)
-        engine._last_rec[ch] = 100.0
+        engine._last_issue_rec[(ch, issue)] = 100.0
         # 60 s later — would pass base but fails doubled (120 s required)
         assert not engine._issue_cooldown_ok(ch, issue, 160.0), "Should be blocked by 120 s cooldown"
         # 120 s later — passes
@@ -1317,7 +1319,7 @@ class TestStabilityGuard:
         ch, issue = 1, "mid_buildup"
         for _ in range(4):
             engine._update_stability(ch, issue)
-        engine._last_rec[ch] = 100.0
+        engine._last_issue_rec[(ch, issue)] = 100.0
         # 120 s later — would pass 120 s cooldown but fails 240 s
         assert not engine._issue_cooldown_ok(ch, issue, 220.0), "Should be blocked by 240 s cooldown"
         # 240 s later — passes
@@ -1336,8 +1338,8 @@ class TestStabilityGuard:
         ch = 1
         for _ in range(3):
             engine._update_stability(ch, "mid_buildup")
-        # sub_bass_buildup on same channel is unaffected
-        engine._last_rec[ch] = 100.0
+        # sub_bass_buildup on same channel is unaffected — no entry in _last_issue_rec
+        engine._last_issue_rec[(ch, "mid_buildup")] = 100.0
         assert engine._issue_cooldown_ok(ch, "sub_bass_buildup", 160.0), \
             "Different issue on same channel should use base cooldown"
 
@@ -1345,8 +1347,8 @@ class TestStabilityGuard:
         engine = self._engine()
         for _ in range(3):
             engine._update_stability(1, "mid_buildup")
-        engine._last_rec[1] = 100.0
-        engine._last_rec[2] = 100.0
+        engine._last_issue_rec[(1, "mid_buildup")] = 100.0
+        # ch2 has no entry in _last_issue_rec — should use base cooldown (0 elapsed ok)
         assert engine._issue_cooldown_ok(2, "mid_buildup", 160.0), \
             "Same issue on different channel should use base cooldown"
 
@@ -1357,7 +1359,7 @@ class TestStabilityGuard:
         ch, issue = 1, "mid_buildup"
         for _ in range(3):
             engine._update_stability(ch, issue)
-        engine._last_rec[ch] = 100.0
+        engine._last_issue_rec[(ch, issue)] = 100.0
         assert not engine._issue_cooldown_ok(ch, issue, 160.0), "Confirm extended cooldown active"
 
         engine.notify_adjustment(ch)
@@ -1389,7 +1391,7 @@ class TestStabilityGuard:
         ch, issue = 1, "mid_buildup"
         for _ in range(3):
             engine._update_stability(ch, issue)
-        engine._last_rec[ch] = 100.0
+        engine._last_issue_rec[(ch, issue)] = 100.0
         assert not engine._issue_cooldown_ok(ch, issue, 160.0)
 
         # Simulate: issue was active last cycle, but resolves this cycle
@@ -2588,3 +2590,221 @@ class TestSoundcheckModeIMP021:
             assert "input_gain_db" in ch_data
         finally:
             _bl_module.SHOWS_DIR = orig
+
+
+# ===========================================================================
+# FIX A — SOUNDCHECK ADVISORY COOLDOWN
+# ===========================================================================
+
+class TestSoundcheckAdvisoryCooldownFixA:
+    def _make_fire_fn(self):
+        """Returns (_fire_sc_advisory fn, _sc_advisory_last dict) pair for testing."""
+        last = {}
+        cooldown = 60.0
+        def fire(key, message, now):
+            if now - last.get(key, 0.0) >= cooldown:
+                last[key] = now
+                return True
+            return False
+        return fire, last
+
+    def test_same_advisory_blocked_within_60s(self):
+        fire, last = self._make_fire_fn()
+        assert fire((1, "hpf"), "msg", 100.0) is True   # first fire
+        assert fire((1, "hpf"), "msg", 150.0) is False  # 50s later — blocked
+
+    def test_same_advisory_fires_again_after_60s(self):
+        fire, last = self._make_fire_fn()
+        assert fire((1, "hpf"), "msg", 100.0) is True
+        assert fire((1, "hpf"), "msg", 161.0) is True   # 61s later — fires again
+
+    def test_different_check_types_independent(self):
+        fire, last = self._make_fire_fn()
+        assert fire((1, "hpf"), "msg", 100.0) is True
+        assert fire((1, "gain_staging"), "msg", 110.0) is True  # different type, fires
+        assert fire((1, "hpf"), "msg", 120.0) is False          # HPF still blocked
+
+    def test_different_channels_independent(self):
+        fire, last = self._make_fire_fn()
+        assert fire((1, "hpf"), "msg", 100.0) is True
+        assert fire((2, "hpf"), "msg", 110.0) is True   # different channel, fires
+        assert fire((1, "hpf"), "msg", 120.0) is False  # ch1 still blocked
+
+
+# ===========================================================================
+# FIX B — STABILITY GUARD PER-ISSUE TIMESTAMP TRACKING
+# ===========================================================================
+
+class TestStabilityGuardPerIssueTrackingFixB:
+
+    def test_per_issue_timestamps_independent_of_shared_channel_rec(self):
+        engine = RecommendationEngine(_minimal_band_cfg(), _make_glam_profile())
+        ch, issue = 1, "bass_buildup"
+        for _ in range(3):
+            engine._update_stability(ch, issue)
+        engine._last_issue_rec[(ch, issue)] = 100.0
+        # Simulate a different issue firing later, resetting shared _last_rec
+        engine._last_rec[ch] = 160.0
+        # bass_buildup's 120s cooldown runs from T=100 — still blocked at T=200
+        assert not engine._issue_cooldown_ok(ch, issue, 200.0)
+        # Passes at T=220 (120s after T=100)
+        assert engine._issue_cooldown_ok(ch, issue, 220.0)
+
+    def test_two_issues_same_channel_independent_cooldowns(self):
+        engine = RecommendationEngine(_minimal_band_cfg(), _make_glam_profile())
+        ch = 1
+        for _ in range(3):
+            engine._update_stability(ch, "bass_buildup")
+        engine._last_issue_rec[(ch, "bass_buildup")] = 100.0
+        # bass_buildup in 120s cooldown at T=160
+        assert not engine._issue_cooldown_ok(ch, "bass_buildup", 160.0)
+        # low_mid_buildup on same channel — no history, uses base cooldown (0s elapsed ok at T=160 since no prior rec)
+        assert engine._issue_cooldown_ok(ch, "low_mid_buildup", 160.0)
+
+    def test_set_genre_resets_stability_guard_state(self):
+        engine = RecommendationEngine(_minimal_band_cfg(), _make_glam_profile())
+        ch, issue = 1, "bass_buildup"
+        for _ in range(3):
+            engine._update_stability(ch, issue)
+        engine._last_issue_rec[(ch, issue)] = 100.0
+        assert not engine._issue_cooldown_ok(ch, issue, 160.0)
+        engine.set_genre(_make_glam_profile())
+        assert engine._issue_cooldown_ok(ch, issue, 160.0)
+        assert engine._consecutive_fires == {}
+        assert engine._issue_cooldown == {}
+        assert engine._last_issue_rec == {}
+
+    def test_set_genre_does_not_reset_last_rec(self):
+        engine = RecommendationEngine(_minimal_band_cfg(), _make_glam_profile())
+        engine._last_rec[1] = 500.0
+        engine.set_genre(_make_glam_profile())
+        assert engine._last_rec.get(1) == 500.0
+
+    def test_notify_adjustment_clears_per_issue_timestamps(self):
+        engine = RecommendationEngine(_minimal_band_cfg(), _make_glam_profile())
+        engine._last_issue_rec[(1, "bass_buildup")] = 100.0
+        engine._last_issue_rec[(1, "low_mid_buildup")] = 100.0
+        engine._last_issue_rec[(2, "bass_buildup")] = 100.0
+        engine.notify_adjustment(1)
+        assert (1, "bass_buildup") not in engine._last_issue_rec
+        assert (1, "low_mid_buildup") not in engine._last_issue_rec
+        assert (2, "bass_buildup") in engine._last_issue_rec
+
+    def test_stability_guard_suppresses_after_three_fires_end_to_end(self):
+        """Integration: after 3 fires same band deviation, 4th within 120s is suppressed."""
+        cfg = _minimal_band_cfg()
+        cfg["frequency_fingerprints"] = {"Bass": {"primary": [40, 250]}}
+        cfg["thresholds"]["recommendation_cooldown_s"] = 60
+        cfg["channels"] = {1: {"label": "Bass", "type": "instrument"}}
+        engine = RecommendationEngine(cfg, _make_glam_profile())
+
+        bands = {b: -30.0 for b in BAND_NAMES}
+        bands["bass"] = -20.0  # create bass deviation above median
+
+        fires = []
+        base_t = 1000.0
+        for i in range(4):
+            t = base_t + i * 61.0  # 61s apart to clear base 60s cooldown
+            room = RoomAnalysis(
+                lufs=-18.0, rms_db=-20.0, bands=bands,
+                band_delta={b: 0.0 for b in BAND_NAMES},
+                lufs_delta=0.0, timestamp=t,
+            )
+            channels = {1: _make_channel(num=1, label="Bass", rms_db=-12.0)}
+            recs = engine.evaluate(room, channels)
+            fires.append(any("bass" in r.issue for r in recs))
+
+        assert fires[0], "First fire should trigger"
+        assert fires[1], "Second fire should trigger"
+        assert fires[2], "Third fire should trigger"
+        assert not fires[3], "Fourth should be suppressed (120s cooldown, only 61s elapsed)"
+
+
+# ===========================================================================
+# FIX C — HPF NAMED MOVE EXCLUDED FOR BASS AND KICK
+# ===========================================================================
+
+class TestHPFNamedMoveFixC:
+    def test_named_move_hpf_suppressed_for_bass(self):
+        from core.recommender import _named_move
+        assert _named_move(50, "cut", "Bass") == ""
+
+    def test_named_move_hpf_suppressed_for_kick(self):
+        from core.recommender import _named_move
+        assert _named_move(50, "cut", "Kick") == ""
+
+    def test_named_move_hpf_allowed_for_guitar(self):
+        from core.recommender import _named_move
+        assert _named_move(50, "cut", "Guitar 1") == "HPF"
+
+    def test_named_move_hpf_allowed_for_empty_label(self):
+        from core.recommender import _named_move
+        assert _named_move(50, "cut", "") == "HPF"
+
+    def test_bass_subbass_rec_does_not_start_with_hpf(self):
+        """Integration: Bass sub-bass recommendation should not start with 'HPF —'."""
+        cfg = _minimal_band_cfg()
+        cfg["frequency_fingerprints"] = {
+            "Bass": {"primary": [40, 250], "definition": [700, 1000]}
+        }
+        cfg["channels"] = {1: {"label": "Bass", "type": "instrument"}}
+        engine = RecommendationEngine(cfg, _make_glam_profile())
+        bass_ch = _make_channel(num=1, label="Bass", rms_db=-12.0)
+        # Place an EQ band at 50Hz so _eq_recommendation finds a band to work with
+        bass_ch.eq[0] = EQBand(band_num=1, type=2, freq_hz=50.0, gain_db=2.0, q=1.0)
+        _, suggest = engine._eq_recommendation(bass_ch, "sub_bass", 4.0)
+        assert not suggest.startswith("HPF —"), f"Bass sub-bass suggest should not start with HPF: {suggest!r}"
+
+
+# ===========================================================================
+# FIX D — "ADD EQ POINT" SUGGESTIONS NAME THE BAND
+# ===========================================================================
+
+class TestAddEQBandFixD:
+    def _engine(self):
+        cfg = _minimal_band_cfg()
+        return RecommendationEngine(cfg, _make_glam_profile())
+
+    def test_no_qualifying_band_names_flattest_band(self):
+        engine = self._engine()
+        ch = _make_channel(num=1, label="Keys", rms_db=-20.0)
+        # Place all 4 bands well outside 2-octave range of sub_bass (lo=20, hi=80, mid=50)
+        # 2-octave window: [12.5, 200Hz]. Put bands at 500Hz+
+        ch.eq[0] = EQBand(band_num=1, type=2, freq_hz=500.0,  gain_db=0.0, q=1.0)
+        ch.eq[1] = EQBand(band_num=2, type=2, freq_hz=1000.0, gain_db=2.0, q=1.0)
+        ch.eq[2] = EQBand(band_num=3, type=2, freq_hz=2000.0, gain_db=3.0, q=1.0)
+        ch.eq[3] = EQBand(band_num=4, type=2, freq_hz=4000.0, gain_db=1.0, q=1.0)
+        _, suggest = engine._eq_recommendation(ch, "sub_bass", 4.0)
+        assert "Move Band 1" in suggest   # Band 1 has gain_db=0.0 — flattest
+        assert "500Hz" in suggest
+
+    def test_suggested_band_is_flattest(self):
+        engine = self._engine()
+        ch = _make_channel(num=1, label="Keys", rms_db=-20.0)
+        ch.eq[0] = EQBand(band_num=1, type=2, freq_hz=500.0,  gain_db=3.0, q=1.0)
+        ch.eq[1] = EQBand(band_num=2, type=2, freq_hz=1000.0, gain_db=0.5, q=1.0)  # flattest
+        ch.eq[2] = EQBand(band_num=3, type=2, freq_hz=2000.0, gain_db=2.0, q=1.0)
+        ch.eq[3] = EQBand(band_num=4, type=2, freq_hz=4000.0, gain_db=4.0, q=1.0)
+        _, suggest = engine._eq_recommendation(ch, "sub_bass", 4.0)
+        assert "Move Band 2" in suggest
+
+    def test_all_lcut_hcut_falls_back_to_generic(self):
+        engine = self._engine()
+        ch = _make_channel(num=1, label="Keys", rms_db=-20.0)
+        ch.eq[0] = EQBand(band_num=1, type=0, freq_hz=80.0,   gain_db=0.0, q=0.7)
+        ch.eq[1] = EQBand(band_num=2, type=5, freq_hz=8000.0, gain_db=0.0, q=0.7)
+        ch.eq[2] = EQBand(band_num=3, type=0, freq_hz=100.0,  gain_db=0.0, q=0.7)
+        ch.eq[3] = EQBand(band_num=4, type=5, freq_hz=12000.0,gain_db=0.0, q=0.7)
+        _, suggest = engine._eq_recommendation(ch, "sub_bass", 4.0)
+        assert "Add EQ" in suggest
+        assert "Move Band" not in suggest
+
+    def test_suggestion_includes_current_frequency(self):
+        engine = self._engine()
+        ch = _make_channel(num=1, label="Keys", rms_db=-20.0)
+        ch.eq[0] = EQBand(band_num=1, type=2, freq_hz=3500.0, gain_db=0.0, q=1.0)
+        ch.eq[1] = EQBand(band_num=2, type=2, freq_hz=4000.0, gain_db=1.0, q=1.0)
+        ch.eq[2] = EQBand(band_num=3, type=2, freq_hz=5000.0, gain_db=2.0, q=1.0)
+        ch.eq[3] = EQBand(band_num=4, type=2, freq_hz=6000.0, gain_db=3.0, q=1.0)
+        _, suggest = engine._eq_recommendation(ch, "sub_bass", 4.0)
+        assert "3500Hz" in suggest

@@ -313,6 +313,15 @@ def run_soundcheck_mode(band_cfg: dict, genre, profiles: dict, setlist,
 
     engine = RecommendationEngine(sc_cfg, genre)
 
+    _sc_advisory_last: dict[tuple, float] = {}
+    SC_ADVISORY_COOLDOWN_S = 60.0
+
+    def _fire_sc_advisory(key: tuple, message: str, now: float) -> None:
+        if now - _sc_advisory_last.get(key, 0.0) >= SC_ADVISORY_COOLDOWN_S:
+            print(f"[{time.strftime('%H:%M:%S')}] {message}")
+            print()
+            _sc_advisory_last[key] = now
+
     current_channels = initial_channels.copy()
     default_genre = band_cfg.get("default_genre", "Glam Metal")
 
@@ -352,19 +361,19 @@ def run_soundcheck_mode(band_cfg: dict, genre, profiles: dict, setlist,
                 print(rec.format_terminal())
                 print()
 
+            now = time.time()
             for ch in current_channels.values():
                 hpf_msg = check_hpf(ch)
                 if hpf_msg:
-                    print(f"[{time.strftime('%H:%M:%S')}] {hpf_msg}")
-                    print()
-                gs_msg = check_gain_staging(ch)
-                if gs_msg:
-                    print(f"[{time.strftime('%H:%M:%S')}] {gs_msg}")
-                    print()
+                    _fire_sc_advisory((ch.channel_num, "hpf"), hpf_msg, now)
+
+                gain_msg = check_gain_staging(ch)
+                if gain_msg:
+                    _fire_sc_advisory((ch.channel_num, "gain_staging"), gain_msg, now)
+
                 comp_msg = check_compressor_sanity(ch)
                 if comp_msg:
-                    print(f"[{time.strftime('%H:%M:%S')}] {comp_msg}")
-                    print()
+                    _fire_sc_advisory((ch.channel_num, "compressor"), comp_msg, now)
 
             while kb_queue:
                 cmd = kb_queue.pop(0)

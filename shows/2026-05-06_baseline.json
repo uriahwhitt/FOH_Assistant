@@ -1,0 +1,524 @@
+{
+  "date": "2026-05-06",
+  "time": "10:16:03",
+  "band": "Nostalgic Knights",
+  "genre": "Glam Metal",
+  "channels": {
+    "1": {
+      "label": "Kick",
+      "fader_db": -3.02,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "4": {
+      "label": "Drum Rack",
+      "fader_db": -3.02,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "5": {
+      "label": "Floor Tom",
+      "fader_db": -3.02,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "6": {
+      "label": "Acoustic Guitar",
+      "fader_db": -3.02,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "7": {
+      "label": "Guitar 1",
+      "fader_db": 0.5,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 80.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 315.0,
+          "gain_db": 1.5,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 2500.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 8000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "8": {
+      "label": "Guitar 2",
+      "fader_db": -1.89,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "9": {
+      "label": "Lead Vocal",
+      "fader_db": -0.99,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "10": {
+      "label": "Drum Vocal",
+      "fader_db": -3.02,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "11": {
+      "label": "Bassist Vocal",
+      "fader_db": -3.02,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "12": {
+      "label": "Keys Vocal",
+      "fader_db": -3.02,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "13": {
+      "label": "Bass",
+      "fader_db": -4.0,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    },
+    "15": {
+      "label": "Keys",
+      "fader_db": -3.02,
+      "muted": false,
+      "eq": [
+        {
+          "band": 1,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 2,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 3,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        },
+        {
+          "band": 4,
+          "type": 2,
+          "freq_hz": 1000.0,
+          "gain_db": 0.0,
+          "q": 0.71
+        }
+      ],
+      "comp_on": false,
+      "comp_threshold_db": -20.0,
+      "gate_on": false,
+      "gate_threshold_db": -40.0,
+      "hpf_on": false,
+      "hpf_freq_hz": 158.9,
+      "hpf_slope": 1,
+      "input_gain_db": 0.0
+    }
+  }
+}
