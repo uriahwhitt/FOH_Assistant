@@ -1,23 +1,29 @@
 name: "Sparse Mic Activation"
-description: "Drum Vocal (ch 6) crosses activity threshold mid-show. Should be flagged as SPARSE_MIC_ACTIVE."
+description: >
+  Drum Vocal (ch 6) crosses the activity threshold mid-show.
+  Initial fader is set very low so the simulator's fader-based RMS approximation
+  falls below inactive_threshold_db (-35 dBFS). At t=60s the fader jumps to a
+  realistic performance level, making the channel active for the rest of the scenario.
+  The Drum Vocal should only appear as a recommendation candidate after t=60s.
 duration_s: 180
 
 initial_state:
   channels:
-    6:  { fader_db: -2.0, muted: false }   # Drum Vocal open but quiet
-    9:  { fader_db: -2.0 }
-    14: { fader_db: -1.0 }
+    6:  { fader_db: -70.0, muted: false }  # Drum Vocal: fader-approx RMS ≈ -36 dBFS (below -35 threshold)
+    9:  { fader_db: -2.0 }                  # Guitar 1
+    10: { fader_db: -3.0 }                  # Guitar 2
+    14: { fader_db: -1.0 }                  # Lead Vocal
   main_fader_db: 0.0
 
 timeline:
   - at_s: 60
     action: fader_move
     channel: 6
-    target_db: 0.0
-    note: "Drum Vocal becomes active (Fight for Your Right) -- expected"
+    target_db: -2.0
+    note: "Drum Vocal becomes active (Fight for Your Right) — expected, channel crosses threshold"
 
   - at_s: 120
     action: fader_move
     channel: 6
-    target_db: -2.0
-    note: "Drum Vocal returns to background level"
+    target_db: -70.0
+    note: "Drum Vocal returns below activity threshold — song over"

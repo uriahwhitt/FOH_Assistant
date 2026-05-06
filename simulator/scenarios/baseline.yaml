@@ -1,13 +1,24 @@
 name: "Clean Baseline"
-description: "Flat, well-dialed starting state — no recommendations should fire"
+description: >
+  Flat, well-dialed starting state across all 12 confirmed channels.
+  No recommendations should fire. Use as the default starting board state
+  for validate.py and integration tests.
 duration_s: 120
 
 initial_state:
   channels:
-    9:  { fader_db: -2.0, eq: [{band: 1, gain: 0, freq: 80}, {band: 2, gain: 0, freq: 315}, {band: 3, gain: 0, freq: 3000}, {band: 4, gain: 0, freq: 10000}] }
-    10: { fader_db: -3.0, eq: [{band: 1, gain: 0, freq: 80}, {band: 2, gain: 0, freq: 315}, {band: 3, gain: 0, freq: 3000}, {band: 4, gain: 0, freq: 10000}] }
-    14: { fader_db: -1.0 }
-    7:  { fader_db: -4.0 }
+    1:  { fader_db: -3.0, eq: [{band: 1, gain: 0.0, freq: 60},  {band: 2, gain: 0.0, freq: 200},  {band: 3, gain: 0.0, freq: 2500}, {band: 4, gain: 0.0, freq: 10000}] }  # Kick
+    4:  { fader_db: -4.0, eq: [{band: 1, gain: 0.0, freq: 100}, {band: 2, gain: 0.0, freq: 400},  {band: 3, gain: 0.0, freq: 3000}, {band: 4, gain: 0.0, freq: 8000}] }   # Drum Rack
+    5:  { fader_db: -6.0, eq: [{band: 1, gain: 0.0, freq: 80},  {band: 2, gain: 0.0, freq: 250},  {band: 3, gain: 0.0, freq: 2000}, {band: 4, gain: 0.0, freq: 5000}] }   # Floor Tom
+    6:  { fader_db: -10.0, muted: true }                                                                                                                                     # Acoustic Guitar — muted, Keys active
+    7:  { fader_db: -2.0, eq: [{band: 1, gain: 0.0, freq: 80},  {band: 2, gain: 0.0, freq: 315},  {band: 3, gain: 0.0, freq: 2500}, {band: 4, gain: 0.0, freq: 8000}] }   # Guitar 1
+    8:  { fader_db: -3.0, eq: [{band: 1, gain: 0.0, freq: 80},  {band: 2, gain: 0.0, freq: 315},  {band: 3, gain: 0.0, freq: 2500}, {band: 4, gain: 0.0, freq: 8000}] }   # Guitar 2
+    9:  { fader_db: -1.0, eq: [{band: 1, gain: 0.0, freq: 150}, {band: 2, gain: 0.0, freq: 800},  {band: 3, gain: 0.0, freq: 3000}, {band: 4, gain: 0.0, freq: 8000}] }   # Lead Vocal
+    10: { fader_db: -10.0, muted: false }                                                                                                                                    # Drum Vocal — open, quiet
+    11: { fader_db: -5.0,  muted: false }                                                                                                                                    # Bassist Vocal
+    12: { fader_db: -5.0,  muted: false }                                                                                                                                    # Keys Vocal
+    13: { fader_db: -4.0, eq: [{band: 1, gain: 0.0, freq: 60},  {band: 2, gain: 0.0, freq: 150},  {band: 3, gain: 0.0, freq: 800},  {band: 4, gain: 0.0, freq: 5000}] }   # Bass
+    15: { fader_db: -4.0, eq: [{band: 1, gain: 0.0, freq: 200}, {band: 2, gain: 0.0, freq: 800},  {band: 3, gain: 0.0, freq: 3000}, {band: 4, gain: 0.0, freq: 8000}] }   # Keys
   main_fader_db: 0.0
 
 timeline: []

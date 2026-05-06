@@ -32,9 +32,114 @@ class SessionLogger:
         self._event_counter = 0
 
         # Most recent RECOMMENDATION per channel for correlation
-        # {channel_num: (event_id, timestamp, suggestion, suggestion_amount)}
         self._last_recs: dict[int, tuple] = {}
-        self._last_global_rec: Optional[tuple] = None   # for LUFS recs (no channel)
+        self._last_global_rec: Optional[tuple] = None
+
+        # Per-song segment tracking
+        self._current_song_info: Optional[dict] = None   # song dict from setlist or None
+        self._current_song_start: float = 0.0
+        self._song_recs: list[str] = []     # event IDs logged during current song
+        self._song_adj: list[str] = []      # adjustment event IDs during current song
+        self._song_lufs: list[float] = []   # LUFS samples recorded during current song
+        self._between_song_start: float = 0.0
+        self._completed_songs: list[dict] = []   # finished segments (songs + gaps)
+        self._song_counter: int = 0              # auto-increment for no-setlist mode
+
+    # ------------------------------------------------------------------
+    # Song event logging
+    # ------------------------------------------------------------------
+
+    def log_song_start(self, song: Optional[dict], position: int,
+                       genre_id: str) -> str:
+        """Log a SONG_START event.
+
+        song — setlist dict {title, artist, genre_profile, ...} or None for
+               no-setlist mode (auto-generates a generic title).
+        position — 1-based setlist index (pass 0 for no-setlist mode).
+        genre_id — active genre profile ID at song start.
+        """
+        now = time.time()
+        ts_str = time.strftime("%H:%M:%S", time.localtime(now))
+        self._song_counter += 1
+
+        # Close any open between-songs gap
+        if self._between_song_start > 0.0:
+            gap_s = now - self._between_song_start
+            self._completed_songs.append({
+                "type": "between_songs",
+                "duration_s": round(gap_s, 1),
+            })
+            self._between_song_start = 0.0
+
+        self._current_song_info = song
+        self._current_song_start = now
+        self._song_recs = []
+        self._song_adj  = []
+        self._song_lufs = []
+
+        title  = song.get("title",  "") if song else f"Song {self._song_counter}"
+        artist = song.get("artist", "") if song else ""
+
+        evt_id = self._next_id()
+        self._events.append({
+            "id":               evt_id,
+            "timestamp":        ts_str,
+            "type":             "SONG_START",
+            "title":            title,
+            "artist":           artist,
+            "genre_profile":    genre_id,
+            "setlist_position": position,
+        })
+        self._flush()
+        return evt_id
+
+    def log_song_end(self) -> str:
+        """Log a SONG_END event and save the completed song segment."""
+        now = time.time()
+        ts_str = time.strftime("%H:%M:%S", time.localtime(now))
+        duration_s = (now - self._current_song_start) if self._current_song_start else 0.0
+
+        song   = self._current_song_info
+        title  = song.get("title",  "") if song else f"Song {self._song_counter}"
+        artist = song.get("artist", "") if song else ""
+        genre  = song.get("genre_profile", "") if song else ""
+
+        evt_id = self._next_id()
+        self._events.append({
+            "id":         evt_id,
+            "timestamp":  ts_str,
+            "type":       "SONG_END",
+            "title":      title,
+            "duration_s": round(duration_s, 1),
+        })
+
+        self._completed_songs.append({
+            "type":         "song",
+            "title":        title,
+            "artist":       artist,
+            "genre_profile": genre,
+            "duration_s":   round(duration_s, 1),
+            "rec_ids":      list(self._song_recs),
+            "adj_ids":      list(self._song_adj),
+            "lufs_samples": list(self._song_lufs),
+        })
+
+        # Start the between-songs gap timer
+        self._between_song_start = now
+        self._current_song_info  = None
+        self._current_song_start = 0.0
+        self._song_recs = []
+        self._song_adj  = []
+        self._song_lufs = []
+
+        self._flush()
+        return evt_id
+
+    def record_lufs(self, lufs: float) -> None:
+        """Record a LUFS sample for the currently active song.
+        Silently ignored when no song is active or the sample is silence-sentinel."""
+        if self._current_song_start > 0.0 and lufs > -70.0:
+            self._song_lufs.append(lufs)
 
     # ------------------------------------------------------------------
     # Recommendation events
@@ -43,16 +148,16 @@ class SessionLogger:
     def log_recommendation(self, rec: Recommendation) -> str:
         evt_id = self._next_id()
         entry = {
-            "id": evt_id,
-            "timestamp": rec.timestamp_str or time.strftime("%H:%M:%S"),
-            "type": "RECOMMENDATION",
-            "channel": rec.channel_label,
-            "channel_num": rec.channel_num,
+            "id":            evt_id,
+            "timestamp":     rec.timestamp_str or time.strftime("%H:%M:%S"),
+            "type":          "RECOMMENDATION",
+            "channel":       rec.channel_label,
+            "channel_num":   rec.channel_num,
             "genre_profile": rec.genre_id,
-            "issue": rec.issue,
-            "detail": rec.detail,
+            "issue":         rec.issue,
+            "detail":        rec.detail,
             "current_state": rec.current_state,
-            "suggestion": rec.suggestion,
+            "suggestion":    rec.suggestion,
         }
         self._events.append(entry)
         if rec.channel_num is not None:
@@ -61,6 +166,8 @@ class SessionLogger:
             )
         else:
             self._last_global_rec = (evt_id, rec.timestamp, rec.suggestion, rec.current_state)
+        if self._current_song_start > 0.0:
+            self._song_recs.append(evt_id)
         self._flush()
         return evt_id
 
@@ -74,10 +181,10 @@ class SessionLogger:
                                     thresholds: dict) -> list[AdjustmentEvent]:
         """Diff two channel snapshots, log detected adjustments, return event list."""
         fader_thr = thresholds.get("adjustment_detect_fader_db", 0.5)
-        eq_thr = thresholds.get("adjustment_detect_eq_db", 0.5)
-        freq_thr = thresholds.get("adjustment_detect_freq_hz", 10.0)
+        eq_thr    = thresholds.get("adjustment_detect_eq_db",    0.5)
+        freq_thr  = thresholds.get("adjustment_detect_freq_hz",  10.0)
 
-        now = time.time()
+        now    = time.time()
         ts_str = time.strftime("%H:%M:%S", time.localtime(now))
         detected: list[AdjustmentEvent] = []
 
@@ -86,20 +193,17 @@ class SessionLogger:
                 continue
             p, c = prev[ch_num], curr[ch_num]
 
-            # Fader change
             if abs(c.fader_db - p.fader_db) >= fader_thr:
                 adj = AdjustmentEvent(ch_num, c.label, "fader", p.fader_db, c.fader_db, now)
                 detected.append(adj)
                 self._log_adjustment(adj, ts_str)
 
-            # Mute toggle
             if c.muted != p.muted:
                 adj = AdjustmentEvent(ch_num, c.label, "mute",
                                       float(p.muted), float(c.muted), now)
                 detected.append(adj)
                 self._log_adjustment(adj, ts_str)
 
-            # EQ bands
             for b_idx in range(4):
                 pb, cb = p.eq[b_idx], c.eq[b_idx]
                 if abs(cb.gain_db - pb.gain_db) >= eq_thr:
@@ -122,20 +226,22 @@ class SessionLogger:
         prior_id, match_status, delta_desc, lag = self._correlate(adj)
 
         entry = {
-            "id": evt_id,
-            "timestamp": ts_str,
-            "type": "MANUAL_ADJUSTMENT",
-            "channel": adj.channel_label,
-            "channel_num": adj.channel_num,
-            "parameter": adj.parameter,
-            "before": round(adj.before, 2),
-            "after": round(adj.after, 2),
+            "id":                      evt_id,
+            "timestamp":               ts_str,
+            "type":                    "MANUAL_ADJUSTMENT",
+            "channel":                 adj.channel_label,
+            "channel_num":             adj.channel_num,
+            "parameter":               adj.parameter,
+            "before":                  round(adj.before, 2),
+            "after":                   round(adj.after,  2),
             "prior_recommendation_id": prior_id,
-            "match_status": match_status,
-            "suggestion_delta": delta_desc,
-            "lag_seconds": lag,
+            "match_status":            match_status,
+            "suggestion_delta":        delta_desc,
+            "lag_seconds":             lag,
         }
         self._events.append(entry)
+        if self._current_song_start > 0.0:
+            self._song_adj.append(evt_id)
         self._flush()
 
     def _correlate(self, adj: AdjustmentEvent) -> tuple:
@@ -150,12 +256,9 @@ class SessionLogger:
         if lag > REC_CORRELATION_WINDOW_S:
             return None, "engineer_initiated", None, None
 
-        # Simple match heuristic: if parameter is fader and suggestion mentions fader
-        # or parameter is EQ and suggestion mentions EQ
         param = adj.parameter
         if param == "fader" and "fader" in suggestion.lower():
             change = adj.after - adj.before
-            # Extract suggested change from recommendation state
             match_status = "matched" if abs(change) >= 0.5 else "partial"
             delta = f"Applied {change:+.1f}dB fader change"
         elif "eq" in param and "eq" in suggestion.lower():
@@ -176,12 +279,12 @@ class SessionLogger:
                   channel: str = None, channel_num: int = None,
                   extra: dict = None) -> None:
         entry = {
-            "id": self._next_id(),
-            "timestamp": time.strftime("%H:%M:%S"),
-            "type": event_type,
-            "channel": channel,
+            "id":          self._next_id(),
+            "timestamp":   time.strftime("%H:%M:%S"),
+            "type":        event_type,
+            "channel":     channel,
             "channel_num": channel_num,
-            "detail": detail,
+            "detail":      detail,
         }
         if extra:
             entry.update(extra)
@@ -196,21 +299,19 @@ class SessionLogger:
         self._session["ended_at"] = time.strftime("%H:%M:%S")
         self._flush()
 
-        recs = [e for e in self._events if e["type"] == "RECOMMENDATION"]
+        recs        = [e for e in self._events if e["type"] == "RECOMMENDATION"]
         adjustments = [e for e in self._events if e["type"] == "MANUAL_ADJUSTMENT"]
 
-        matched = [a for a in adjustments if a.get("match_status") == "matched"]
-        partial = [a for a in adjustments if a.get("match_status") == "partial"]
+        matched      = [a for a in adjustments if a.get("match_status") == "matched"]
+        partial      = [a for a in adjustments if a.get("match_status") == "partial"]
         ignored_recs = [r for r in recs if not any(
             a.get("prior_recommendation_id") == r["id"] for a in adjustments
         )]
         engineer_init = [a for a in adjustments if a.get("match_status") == "engineer_initiated"]
 
-        # Recommendation lag for matched
-        lags = [a["lag_seconds"] for a in matched if a.get("lag_seconds") is not None]
+        lags    = [a["lag_seconds"] for a in matched if a.get("lag_seconds") is not None]
         avg_lag = sum(lags) / len(lags) if lags else 0
 
-        # Per-channel activity counts
         ch_activity: dict[str, dict] = {}
         for e in recs:
             lbl = e.get("channel") or "Overall"
@@ -221,19 +322,12 @@ class SessionLogger:
             ch_activity.setdefault(lbl, {"recs": 0, "manual": 0})
             ch_activity[lbl]["manual"] += 1
 
-        top_channels = sorted(ch_activity.items(),
-                               key=lambda x: x[1]["recs"] + x[1]["manual"],
-                               reverse=True)[:5]
-
-        # Baseline drift events
-        drift_events = [e for e in self._events if e["type"] == "BASELINE_DRIFT"]
-
-        # Sparse mic events
+        top_channels  = sorted(ch_activity.items(),
+                                key=lambda x: x[1]["recs"] + x[1]["manual"],
+                                reverse=True)[:5]
+        drift_events  = [e for e in self._events if e["type"] == "BASELINE_DRIFT"]
         sparse_events = [e for e in self._events if e["type"] == "SPARSE_MIC_ACTIVE"]
-
-        # Feedback events
         feedback_events = [e for e in self._events if e["type"] == "FEEDBACK_SPIKE"]
-
         total_recs = len(recs)
         sep = "=" * 47
 
@@ -285,6 +379,52 @@ class SessionLogger:
 
         lines += ["", "FEEDBACK EVENTS"]
         lines.append(f"  {'None detected' if not feedback_events else str(len(feedback_events)) + ' events -- review log'}")
+
+        # Per-song breakdown
+        if self._completed_songs:
+            lines += ["", "SONG BREAKDOWN"]
+            song_num = 0
+            for seg in self._completed_songs:
+                if seg["type"] == "between_songs":
+                    dur = seg["duration_s"]
+                    m, s = divmod(int(dur), 60)
+                    lines.append(f"  [Between songs: {m}:{s:02d}]")
+                else:
+                    song_num += 1
+                    dur = seg["duration_s"]
+                    m, s = divmod(int(dur), 60)
+                    artist_str = f" ({seg['artist']})" if seg.get("artist") else ""
+                    genre_str  = f" — {seg['genre_profile']}" if seg.get("genre_profile") else ""
+                    lines.append(f"  {song_num}. {seg['title']}{artist_str}{genre_str}   [{m}:{s:02d}]")
+
+                    seg_recs = [e for e in self._events
+                                if e["type"] == "RECOMMENDATION" and e["id"] in seg["rec_ids"]]
+                    seg_adjs = [e for e in self._events
+                                if e["type"] == "MANUAL_ADJUSTMENT" and e["id"] in seg["adj_ids"]]
+                    n_recs = len(seg_recs)
+                    n_matched = sum(
+                        1 for a in seg_adjs
+                        if a.get("match_status") == "matched"
+                        and a.get("prior_recommendation_id") in seg["rec_ids"]
+                    )
+                    acc_str = f"{int(n_matched/max(n_recs,1)*100)}%" if n_recs else "n/a"
+
+                    lufs = seg["lufs_samples"]
+                    if lufs:
+                        peak_lufs = max(lufs)
+                        avg_lufs  = sum(lufs) / len(lufs)
+                        lufs_str  = f"Peak LUFS: {peak_lufs:.1f}  Avg: {avg_lufs:.1f}"
+                    else:
+                        lufs_str = "LUFS: no data"
+
+                    lines.append(f"     Recs: {n_recs} | Matched: {n_matched} ({acc_str}) | {lufs_str}")
+
+                    # Notable events in this song
+                    song_drift = [e for e in self._events
+                                  if e["type"] == "BASELINE_DRIFT"
+                                  and e.get("id", "") in {e2["id"] for e2 in seg_adjs}]
+                    if song_drift:
+                        lines.append(f"     Drift alerts: {len(song_drift)}")
 
         lines += ["", f"Full log: {self._log_path}", sep]
         return "\n".join(lines)

@@ -1,0 +1,567 @@
+{
+  "session": {
+    "date": "2026-05-05",
+    "band": "Nostalgic Knights",
+    "mode": "show",
+    "x32_ip": "127.0.0.1",
+    "genre_default": "Glam Metal",
+    "started_at": "16:08:46",
+    "ended_at": "08:05:29"
+  },
+  "events": [
+    {
+      "id": "evt_0001",
+      "timestamp": "16:08:47",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 4.4dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-22.4",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0002",
+      "timestamp": "16:08:47",
+      "type": "RECOMMENDATION",
+      "channel": "Kick",
+      "channel_num": 1,
+      "genre_profile": "Glam Metal",
+      "issue": "sub_bass_deficiency",
+      "detail": "sub-bass deficiency around 20-80Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Kick in the 20-80Hz range (boost ~50Hz)"
+    },
+    {
+      "id": "evt_0003",
+      "timestamp": "16:08:47",
+      "type": "RECOMMENDATION",
+      "channel": "Floor Tom",
+      "channel_num": 5,
+      "genre_profile": "Glam Metal",
+      "issue": "bass_buildup",
+      "detail": "bass buildup around 80-250Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Floor Tom in the 80-250Hz range (cut ~165Hz)"
+    },
+    {
+      "id": "evt_0004",
+      "timestamp": "16:08:47",
+      "type": "RECOMMENDATION",
+      "channel": "Guitar 1",
+      "channel_num": 7,
+      "genre_profile": "Glam Metal",
+      "issue": "low_mid_buildup",
+      "detail": "low-mid buildup around 250-500Hz detected",
+      "current_state": {
+        "rms": "-11.1dBFS",
+        "fader": "-2.0dB",
+        "eq": "EQ Band 2 +1.5dB @ 315Hz"
+      },
+      "suggestion": "EQ Band 2 cut to -1.5dB @ 315Hz"
+    },
+    {
+      "id": "evt_0005",
+      "timestamp": "16:08:47",
+      "type": "RECOMMENDATION",
+      "channel": "Lead Vocal",
+      "channel_num": 9,
+      "genre_profile": "Glam Metal",
+      "issue": "mid_buildup",
+      "detail": "mid buildup around 500-2000Hz detected",
+      "current_state": {
+        "rms": "-10.7dBFS",
+        "fader": "-1.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "EQ Band 1 cut to -3.0dB @ 1000Hz"
+    },
+    {
+      "id": "evt_0006",
+      "timestamp": "16:08:47",
+      "type": "RECOMMENDATION",
+      "channel": "Keys",
+      "channel_num": 15,
+      "genre_profile": "Glam Metal",
+      "issue": "presence_deficiency",
+      "detail": "presence deficiency around 6000-12000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Keys in the 6000-12000Hz range (boost ~9000Hz)"
+    },
+    {
+      "id": "evt_0007",
+      "timestamp": "16:09:02",
+      "type": "RECOMMENDATION",
+      "channel": "Acoustic Guitar",
+      "channel_num": 6,
+      "genre_profile": "Glam Metal",
+      "issue": "high_mid_deficiency",
+      "detail": "high-mid deficiency around 2000-6000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "EQ Band 1 boost to +3.0dB @ 1000Hz"
+    },
+    {
+      "id": "evt_0008",
+      "timestamp": "16:09:05",
+      "type": "SONG_START",
+      "title": "Don't Stop Believin'",
+      "artist": "Journey",
+      "genre_profile": "AOR",
+      "setlist_position": 1
+    },
+    {
+      "id": "evt_0009",
+      "timestamp": "16:09:06",
+      "type": "SONG_END",
+      "title": "Don't Stop Believin'",
+      "duration_s": 1.0
+    },
+    {
+      "id": "evt_0010",
+      "timestamp": "16:09:06",
+      "type": "SONG_START",
+      "title": "Round and Round",
+      "artist": "Ratt",
+      "genre_profile": "Glam Metal",
+      "setlist_position": 2
+    },
+    {
+      "id": "evt_0011",
+      "timestamp": "16:09:14",
+      "type": "SONG_END",
+      "title": "Round and Round",
+      "duration_s": 8.0
+    },
+    {
+      "id": "evt_0012",
+      "timestamp": "16:09:14",
+      "type": "SONG_START",
+      "title": "Bad Reputation",
+      "artist": "Joan Jett",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 3
+    },
+    {
+      "id": "evt_0013",
+      "timestamp": "16:09:47",
+      "type": "RECOMMENDATION",
+      "channel": "Kick",
+      "channel_num": 1,
+      "genre_profile": "Hard Rock",
+      "issue": "sub_bass_buildup",
+      "detail": "sub-bass buildup around 20-80Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Kick in the 20-80Hz range (cut ~50Hz)"
+    },
+    {
+      "id": "evt_0014",
+      "timestamp": "16:09:47",
+      "type": "RECOMMENDATION",
+      "channel": "Floor Tom",
+      "channel_num": 5,
+      "genre_profile": "Hard Rock",
+      "issue": "bass_buildup",
+      "detail": "bass buildup around 80-250Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Floor Tom in the 80-250Hz range (cut ~165Hz)"
+    },
+    {
+      "id": "evt_0015",
+      "timestamp": "16:09:47",
+      "type": "RECOMMENDATION",
+      "channel": "Guitar 1",
+      "channel_num": 7,
+      "genre_profile": "Hard Rock",
+      "issue": "low_mid_buildup",
+      "detail": "low-mid buildup around 250-500Hz detected",
+      "current_state": {
+        "rms": "-11.0dBFS",
+        "fader": "-1.9dB",
+        "eq": "EQ Band 2 +1.5dB @ 315Hz"
+      },
+      "suggestion": "EQ Band 2 cut to -1.5dB @ 315Hz"
+    },
+    {
+      "id": "evt_0016",
+      "timestamp": "16:09:47",
+      "type": "RECOMMENDATION",
+      "channel": "Keys",
+      "channel_num": 15,
+      "genre_profile": "Hard Rock",
+      "issue": "presence_deficiency",
+      "detail": "presence deficiency around 6000-12000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Keys in the 6000-12000Hz range (boost ~9000Hz)"
+    },
+    {
+      "id": "evt_0017",
+      "timestamp": "16:10:02",
+      "type": "RECOMMENDATION",
+      "channel": "Acoustic Guitar",
+      "channel_num": 6,
+      "genre_profile": "Hard Rock",
+      "issue": "high_mid_deficiency",
+      "detail": "high-mid deficiency around 2000-6000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "EQ Band 1 boost to +3.0dB @ 1000Hz"
+    },
+    {
+      "id": "evt_0018",
+      "timestamp": "16:10:15",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.8dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.8",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0019",
+      "timestamp": "16:10:47",
+      "type": "RECOMMENDATION",
+      "channel": "Kick",
+      "channel_num": 1,
+      "genre_profile": "Hard Rock",
+      "issue": "sub_bass_buildup",
+      "detail": "sub-bass buildup around 20-80Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Kick in the 20-80Hz range (cut ~50Hz)"
+    },
+    {
+      "id": "evt_0020",
+      "timestamp": "16:10:47",
+      "type": "RECOMMENDATION",
+      "channel": "Floor Tom",
+      "channel_num": 5,
+      "genre_profile": "Hard Rock",
+      "issue": "bass_buildup",
+      "detail": "bass buildup around 80-250Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Floor Tom in the 80-250Hz range (cut ~165Hz)"
+    },
+    {
+      "id": "evt_0021",
+      "timestamp": "16:10:47",
+      "type": "RECOMMENDATION",
+      "channel": "Guitar 1",
+      "channel_num": 7,
+      "genre_profile": "Hard Rock",
+      "issue": "low_mid_buildup",
+      "detail": "low-mid buildup around 250-500Hz detected",
+      "current_state": {
+        "rms": "-10.3dBFS",
+        "fader": "+0.5dB",
+        "eq": "EQ Band 2 +1.5dB @ 315Hz"
+      },
+      "suggestion": "EQ Band 2 cut to -1.5dB @ 315Hz"
+    },
+    {
+      "id": "evt_0022",
+      "timestamp": "16:10:47",
+      "type": "RECOMMENDATION",
+      "channel": "Keys",
+      "channel_num": 15,
+      "genre_profile": "Hard Rock",
+      "issue": "presence_deficiency",
+      "detail": "presence deficiency around 6000-12000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Keys in the 6000-12000Hz range (boost ~9000Hz)"
+    },
+    {
+      "id": "evt_0023",
+      "timestamp": "16:11:02",
+      "type": "RECOMMENDATION",
+      "channel": "Acoustic Guitar",
+      "channel_num": 6,
+      "genre_profile": "Hard Rock",
+      "issue": "high_mid_deficiency",
+      "detail": "high-mid deficiency around 2000-6000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "EQ Band 1 boost to +3.0dB @ 1000Hz"
+    },
+    {
+      "id": "evt_0024",
+      "timestamp": "16:11:15",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 3.7dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-21.7",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0025",
+      "timestamp": "16:11:18",
+      "type": "RECOMMENDATION",
+      "channel": "Lead Vocal",
+      "channel_num": 9,
+      "genre_profile": "Hard Rock",
+      "issue": "mid_buildup",
+      "detail": "mid buildup around 500-2000Hz detected",
+      "current_state": {
+        "rms": "-10.7dBFS",
+        "fader": "-1.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "EQ Band 1 cut to -3.0dB @ 1000Hz"
+    },
+    {
+      "id": "evt_0026",
+      "timestamp": "16:11:35",
+      "type": "SONG_END",
+      "title": "Bad Reputation",
+      "duration_s": 141.0
+    },
+    {
+      "id": "evt_0027",
+      "timestamp": "16:11:35",
+      "type": "SONG_START",
+      "title": "Highway to Hell",
+      "artist": "AC/DC",
+      "genre_profile": "Heavy Rock",
+      "setlist_position": 4
+    },
+    {
+      "id": "evt_0028",
+      "timestamp": "16:11:41",
+      "type": "SONG_END",
+      "title": "Highway to Hell",
+      "duration_s": 6.0
+    },
+    {
+      "id": "evt_0029",
+      "timestamp": "16:12:04",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Guitar 1",
+      "channel_num": 7,
+      "parameter": "eq_band_2_gain",
+      "before": 1.5,
+      "after": 3.5,
+      "prior_recommendation_id": "evt_0021",
+      "match_status": "matched",
+      "suggestion_delta": "Applied +2.0dB EQ change on eq_band_2_gain",
+      "lag_seconds": 77.0
+    },
+    {
+      "id": "evt_0030",
+      "timestamp": "16:12:11",
+      "type": "RECOMMENDATION",
+      "channel": "Kick",
+      "channel_num": 1,
+      "genre_profile": "Heavy Rock",
+      "issue": "sub_bass_buildup",
+      "detail": "sub-bass buildup around 20-80Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Kick in the 20-80Hz range (cut ~50Hz)"
+    },
+    {
+      "id": "evt_0031",
+      "timestamp": "16:12:11",
+      "type": "RECOMMENDATION",
+      "channel": "Floor Tom",
+      "channel_num": 5,
+      "genre_profile": "Heavy Rock",
+      "issue": "bass_buildup",
+      "detail": "bass buildup around 80-250Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Floor Tom in the 80-250Hz range (cut ~165Hz)"
+    },
+    {
+      "id": "evt_0032",
+      "timestamp": "16:12:11",
+      "type": "RECOMMENDATION",
+      "channel": "Acoustic Guitar",
+      "channel_num": 6,
+      "genre_profile": "Heavy Rock",
+      "issue": "high_mid_deficiency",
+      "detail": "high-mid deficiency around 2000-6000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "EQ Band 1 boost to +3.0dB @ 1000Hz"
+    },
+    {
+      "id": "evt_0033",
+      "timestamp": "16:12:26",
+      "type": "RECOMMENDATION",
+      "channel": "Lead Vocal",
+      "channel_num": 9,
+      "genre_profile": "Heavy Rock",
+      "issue": "mid_buildup",
+      "detail": "mid buildup around 500-2000Hz detected",
+      "current_state": {
+        "rms": "-10.7dBFS",
+        "fader": "-1.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "EQ Band 1 cut to -3.0dB @ 1000Hz"
+    },
+    {
+      "id": "evt_0034",
+      "timestamp": "16:12:47",
+      "type": "RECOMMENDATION",
+      "channel": "Keys",
+      "channel_num": 15,
+      "genre_profile": "Heavy Rock",
+      "issue": "presence_deficiency",
+      "detail": "presence deficiency around 6000-12000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Keys in the 6000-12000Hz range (boost ~9000Hz)"
+    },
+    {
+      "id": "evt_0035",
+      "timestamp": "16:12:48",
+      "type": "RECOMMENDATION",
+      "channel": "Guitar 2",
+      "channel_num": 8,
+      "genre_profile": "Heavy Rock",
+      "issue": "low_mid_buildup",
+      "detail": "low-mid buildup around 250-500Hz detected",
+      "current_state": {
+        "rms": "-10.2dBFS",
+        "fader": "+1.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "EQ Band 1 cut to -3.0dB @ 1000Hz"
+    },
+    {
+      "id": "evt_0036",
+      "timestamp": "16:12:54",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Guitar 1",
+      "channel_num": 7,
+      "parameter": "fader",
+      "before": 0.5,
+      "after": 5.0,
+      "prior_recommendation_id": "evt_0021",
+      "match_status": "partial",
+      "suggestion_delta": "Parameter type differs from recommendation",
+      "lag_seconds": 127.0
+    },
+    {
+      "id": "evt_0037",
+      "timestamp": "16:12:58",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Heavy Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.7dB low vs Heavy Rock target (-17 LUFS)",
+      "current_state": {
+        "lufs": "-19.7",
+        "target": "-17.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0038",
+      "timestamp": "16:13:11",
+      "type": "RECOMMENDATION",
+      "channel": "Kick",
+      "channel_num": 1,
+      "genre_profile": "Heavy Rock",
+      "issue": "sub_bass_buildup",
+      "detail": "sub-bass buildup around 20-80Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Kick in the 20-80Hz range (cut ~50Hz)"
+    },
+    {
+      "id": "evt_0039",
+      "timestamp": "16:13:11",
+      "type": "RECOMMENDATION",
+      "channel": "Floor Tom",
+      "channel_num": 5,
+      "genre_profile": "Heavy Rock",
+      "issue": "bass_buildup",
+      "detail": "bass buildup around 80-250Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB"
+      },
+      "suggestion": "Add EQ point on Floor Tom in the 80-250Hz range (cut ~165Hz)"
+    },
+    {
+      "id": "evt_0040",
+      "timestamp": "16:13:11",
+      "type": "RECOMMENDATION",
+      "channel": "Acoustic Guitar",
+      "channel_num": 6,
+      "genre_profile": "Heavy Rock",
+      "issue": "high_mid_deficiency",
+      "detail": "high-mid deficiency around 2000-6000Hz detected",
+      "current_state": {
+        "rms": "-11.4dBFS",
+        "fader": "-3.0dB",
+        "eq": "EQ Band 1 +0.0dB @ 1000Hz"
+      },
+      "suggestion": "EQ Band 1 boost to +3.0dB @ 1000Hz"
+    }
+  ]
+}

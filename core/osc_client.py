@@ -1,20 +1,25 @@
 """X32 OSC client — read-only in Phase 1.
 
 Connection strategy:
-  1. Send /xremote to register for push updates (all param changes pushed to us)
-  2. Use /node bulk reads to snapshot all 14 channels at startup
-  3. Subscribe to /meters/1 via /batchsubscribe for 50ms RMS pushes
-  4. Keepalive thread renews /xremote and /renew every 8 seconds
+  1. Bind a single UDP socket to 0.0.0.0:listen_port (default 10024).
+     This socket is used for BOTH sending and receiving so the X32 always
+     sees our source port as listen_port and sends replies back there.
+     Using a separate SimpleUDPClient would send from an ephemeral OS port
+     and the reply would never reach the ThreadingOSCUDPServer.
+  2. Send /xremote to register for push updates (all param changes pushed to us)
+  3. Use /node bulk reads to snapshot all 14 channels at startup
+  4. Subscribe to /meters/1 via /batchsubscribe for 50ms RMS pushes
+  5. Keepalive thread renews /xremote and /renew every 8 seconds
 """
 
 import math
+import socket as _socket
 import struct
 import threading
 import time
-from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from pythonosc import dispatcher, osc_server, udp_client
+from pythonosc import dispatcher, osc_server
 from pythonosc.osc_message_builder import OscMessageBuilder
 
 from models.channel import ChannelState, EQBand
@@ -87,27 +92,58 @@ def parse_meters_1(blob_data: bytes) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Debug server — prints raw bytes for every received packet
+# ---------------------------------------------------------------------------
+
+class _DebugOSCUDPServer(osc_server.ThreadingOSCUDPServer):
+    """Instruments every incoming UDP packet with a raw hex/text dump.
+
+    Enable by passing debug=True to X32OSCClient.__init__. Useful when
+    Wireshark shows packets arriving but the app appears not to see them.
+    """
+    def process_request(self, request, client_address):
+        data, _ = request
+        hex_preview = data[:80].hex()
+        text_preview = data[:80].decode("ascii", errors="replace").replace("\x00", "·")
+        print(f"[OSC DEBUG] {len(data)}B from {client_address[0]}:{client_address[1]}")
+        print(f"  hex:  {hex_preview}")
+        print(f"  text: {text_preview!r}")
+        super().process_request(request, client_address)
+
+
+# ---------------------------------------------------------------------------
 # OSC Client
 # ---------------------------------------------------------------------------
 
 class X32OSCClient:
     def __init__(self, ip: str, port: int, channel_map: dict,
-                 listen_port: int = 10024):
+                 listen_port: int = 10024, debug: bool = False,
+                 poll_interval_ms: int = 500):
         self._ip = ip
         self._port = port
         self._channel_map = channel_map   # {num: {label, type, ...}}
         self._listen_port = listen_port
+        self._debug = debug
+        self._poll_interval_s: float = poll_interval_ms / 1000.0
 
-        self._client = udp_client.SimpleUDPClient(ip, port)
+        # Per-channel last-received timestamp (push or /node response).
+        # The poll fallback re-requests /node for channels silent > stale threshold.
+        self._last_push_time: dict[int, float] = {}
+
+        # Bound UDP socket — set by _start_listener().
+        # Used for BOTH outbound sends and inbound receives so the X32 always
+        # replies to listen_port rather than a random ephemeral source port.
+        self._send_sock: Optional[_socket.socket] = None
 
         # Shared state — written by OSC handler thread, read by main thread
-        self._state: dict[int, dict] = {}       # raw param values per channel
+        self._state: dict = {}              # raw param values per channel + "_info"
         self._meter_rms: list[float] = [0.0] * 32
         self._state_lock = threading.Lock()
 
         self._server: Optional[osc_server.ThreadingOSCUDPServer] = None
         self._server_thread: Optional[threading.Thread] = None
         self._keepalive_thread: Optional[threading.Thread] = None
+        self._poll_thread: Optional[threading.Thread] = None
         self._running = False
 
         self._on_adjustment: Optional[Callable] = None  # callback for detected changes
@@ -120,25 +156,28 @@ class X32OSCClient:
         """Start listener, send /xremote, verify with /info. Returns console info string."""
         self._running = True
         self._start_listener()
-        self._client.send_message("/xremote", [])
-        # Request /info to confirm connection
+        self._send("/xremote", [])
         info = self._request_info(timeout)
         self._start_keepalive()
+        self._start_poll_fallback()
         self._subscribe_meters()
         return info
 
     def close(self) -> None:
         self._running = False
         try:
-            self._client.send_message("/unsubscribe", [METERS_ALIAS])
+            self._send("/unsubscribe", [METERS_ALIAS])
         except Exception:
             pass
         if self._server:
             self._server.shutdown()
+            self._server.server_close()  # releases the bound socket
         if self._server_thread:
             self._server_thread.join(timeout=2.0)
         if self._keepalive_thread:
             self._keepalive_thread.join(timeout=2.0)
+        if self._poll_thread:
+            self._poll_thread.join(timeout=2.0)
 
     # ------------------------------------------------------------------
     # Snapshot
@@ -149,10 +188,10 @@ class X32OSCClient:
         Blocks until responses received or timeout."""
         for ch_num in self._channel_map:
             ch = f"{ch_num:02d}"
-            self._client.send_message("/node", [f"ch/{ch}/mix"])
-            self._client.send_message("/node", [f"ch/{ch}/eq"])
-            self._client.send_message("/node", [f"ch/{ch}/dyn"])
-            self._client.send_message("/node", [f"ch/{ch}/gate"])
+            self._send("/node", [f"ch/{ch}/mix"])
+            self._send("/node", [f"ch/{ch}/eq"])
+            self._send("/node", [f"ch/{ch}/dyn"])
+            self._send("/node", [f"ch/{ch}/gate"])
         time.sleep(0.3)     # give X32 time to reply
         return self.build_channel_states()
 
@@ -162,7 +201,8 @@ class X32OSCClient:
         result: dict[int, ChannelState] = {}
         with self._state_lock:
             rms_snapshot = list(self._meter_rms)
-            state_snapshot = {k: v.copy() for k, v in self._state.items()}
+            state_snapshot = {k: v.copy() for k, v in self._state.items()
+                              if isinstance(k, int)}
 
         for ch_num, ch_cfg in self._channel_map.items():
             raw = state_snapshot.get(ch_num, {})
@@ -207,10 +247,29 @@ class X32OSCClient:
 
     def read_main_fader(self) -> float:
         """Return current main LR fader in dB."""
-        self._client.send_message("/main/st/mix/fader", [])
+        self._send("/main/st/mix/fader", [])
         time.sleep(0.1)
         with self._state_lock:
             return fader_float_to_db(self._state.get(0, {}).get("main_fader", 0.75))
+
+    # ------------------------------------------------------------------
+    # Internal — send helper
+    # ------------------------------------------------------------------
+
+    def _send(self, address: str, params=None) -> None:
+        """Build an OSC message and send it from the bound listen socket.
+
+        Sending from self._send_sock (which is the ThreadingOSCUDPServer's
+        socket bound to 0.0.0.0:listen_port) ensures the X32 sees our source
+        port as listen_port and sends all replies back there.
+        """
+        if self._send_sock is None:
+            return
+        builder = OscMessageBuilder(address=address)
+        for p in (params or []):
+            builder.add_arg(p)
+        msg = builder.build()
+        self._send_sock.sendto(msg.dgram, (self._ip, self._port))
 
     # ------------------------------------------------------------------
     # Internal — listener
@@ -224,13 +283,24 @@ class X32OSCClient:
         disp.map(METERS_ALIAS, self._handle_meters)
         disp.set_default_handler(self._handle_default)
 
-        self._server = osc_server.ThreadingOSCUDPServer(
-            ("0.0.0.0", self._listen_port), disp
-        )
+        server_class = _DebugOSCUDPServer if self._debug else osc_server.ThreadingOSCUDPServer
+        self._server = server_class(("0.0.0.0", self._listen_port), disp)
+
+        # Reuse the server's already-bound socket for outbound sends.
+        # The socket is bound synchronously in ThreadingOSCUDPServer.__init__,
+        # before serve_forever is called, so it's safe to use immediately.
+        self._send_sock = self._server.socket
+
         self._server_thread = threading.Thread(
             target=self._server.serve_forever, daemon=True
         )
         self._server_thread.start()
+
+        # Give serve_forever time to enter its select() loop before we send
+        # the first packet. Without this, a very fast emulator reply could
+        # arrive in the OS buffer before serve_forever starts draining it —
+        # harmless on most systems but avoids a subtle race on loaded hosts.
+        time.sleep(0.05)
 
     def _start_keepalive(self) -> None:
         def loop():
@@ -238,29 +308,58 @@ class X32OSCClient:
                 time.sleep(KEEPALIVE_INTERVAL)
                 if not self._running:
                     break
-                self._client.send_message("/xremote", [])
-                self._client.send_message("/renew", [METERS_ALIAS])
+                self._send("/xremote", [])
+                self._send("/renew", [METERS_ALIAS])
 
         self._keepalive_thread = threading.Thread(target=loop, daemon=True)
         self._keepalive_thread.start()
 
+    def _is_channel_stale(self, ch_num: int, now: float,
+                          stale_s: float = 2.0) -> bool:
+        """True if ch_num has not received any update within stale_s seconds."""
+        return (now - self._last_push_time.get(ch_num, 0.0)) > stale_s
+
+    def _start_poll_fallback(self) -> None:
+        """Background thread that re-requests /node for channels that have gone
+        silent — no push update received within stale_s seconds.
+
+        Push updates via /xremote are unreliable over venue WiFi.  This fallback
+        keeps board state current even when push packets are dropped.
+        Stale threshold = max(2.0 s, 4 × poll_interval) — at least four cycles.
+        """
+        stale_s = max(2.0, self._poll_interval_s * 4)
+
+        def loop():
+            while self._running:
+                time.sleep(self._poll_interval_s)
+                if not self._running:
+                    break
+                now = time.time()
+                for ch_num in self._channel_map:
+                    if self._is_channel_stale(ch_num, now, stale_s):
+                        ch = f"{ch_num:02d}"
+                        self._send("/node", [f"ch/{ch}/mix"])
+                        self._send("/node", [f"ch/{ch}/eq"])
+
+        self._poll_thread = threading.Thread(target=loop, daemon=True)
+        self._poll_thread.start()
+
     def _subscribe_meters(self) -> None:
         # /batchsubscribe alias meter_cmd arg1 arg2 time_factor
-        self._client.send_message(
-            "/batchsubscribe", [METERS_ALIAS, "/meters/1", 0, 0, 1]
-        )
+        self._send("/batchsubscribe", [METERS_ALIAS, "/meters/1", 0, 0, 1])
 
     def _request_info(self, timeout: float) -> str:
         """Send /info and wait for response. Returns info string."""
-        self._state["_info"] = None
-        self._client.send_message("/info", [])
+        with self._state_lock:
+            self._state["_info"] = None
+        self._send("/info", [])
         deadline = time.time() + timeout
         while time.time() < deadline:
             with self._state_lock:
                 info = self._state.get("_info")
             if info is not None:
                 return info
-            time.sleep(0.1)
+            time.sleep(0.05)    # tight poll — X32 responds in <10ms
         raise ConnectionError(
             f"No response from X32 at {self._ip}:{self._port} within {timeout}s. "
             "Check IP address and network connection."
@@ -307,6 +406,7 @@ class X32OSCClient:
                 elif section == "gate" and len(values) >= 2:
                     raw["gate_on"] = int(values[0])
                     raw["gate_thr"] = float(values[1])
+            self._last_push_time[ch_num] = time.time()
 
     def _handle_channel_param(self, address: str, *args) -> None:
         # Individual parameter push from /xremote: /ch/01/mix/fader ,f value
@@ -348,6 +448,7 @@ class X32OSCClient:
                 raw["gate_thr"] = float(val)
             elif param_path == "gate/on":
                 raw["gate_on"] = int(val)
+        self._last_push_time[ch_num] = time.time()
 
     def _handle_main_param(self, address: str, *args) -> None:
         if not args:

@@ -92,7 +92,8 @@ def main() -> None:
     # Initialize OSC
     channel_map = {int(k): v if isinstance(v, dict) else {"label": v["label"], "type": "instrument"}
                    for k, v in band_cfg["channels"].items()}
-    osc = X32OSCClient(x32_ip, x32_port, channel_map)
+    osc = X32OSCClient(x32_ip, x32_port, channel_map,
+                       poll_interval_ms=x32_cfg.get("poll_interval_ms", 500))
     try:
         info = osc.connect()
         print(f"X32 connected: {info}")
@@ -122,7 +123,8 @@ def main() -> None:
         run_baseline_mode(band_cfg, profiles, active_genre, osc, capture,
                           analyzer, logger, channels)
     else:
-        run_show_mode(band_cfg, active_genre, osc, capture, analyzer, logger, channels)
+        run_show_mode(band_cfg, active_genre, profiles, setlist,
+                      osc, capture, analyzer, logger, channels)
 
     capture.stop()
     osc.close()
@@ -132,18 +134,31 @@ def main() -> None:
 # Show mode
 # ---------------------------------------------------------------------------
 
-def run_show_mode(band_cfg: dict, genre, osc: X32OSCClient,
-                  capture: AudioCapture, analyzer: Analyzer,
+def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
+                  osc: X32OSCClient, capture: AudioCapture, analyzer: Analyzer,
                   logger: SessionLogger, initial_channels: dict) -> None:
-    engine = RecommendationEngine(band_cfg, genre)
-    thresholds = band_cfg.get("thresholds", {})
-    prev_channels = initial_channels.copy()
+    from types import SimpleNamespace
+
+    engine        = RecommendationEngine(band_cfg, genre)
+    thresholds    = band_cfg.get("thresholds", {})
+    grace_s       = thresholds.get("transition_grace_seconds", 30)
+    default_genre = band_cfg.get("default_genre", "Glam Metal")
+
+    prev_channels    = initial_channels.copy()
     current_channels = initial_channels.copy()
 
-    print("\nShow mode active. Press Ctrl+C to end and generate report.")
-    print("  s = board state snapshot   g = room analysis   b = baseline drift\n")
+    # Mutable show state shared across inner functions via SimpleNamespace
+    st = SimpleNamespace(
+        song_active  = False,   # True while a song is in progress
+        song_idx     = -1,      # 0-based setlist index; -1 = none
+        song_counter = 0,       # auto-increment for no-setlist mode
+        active_genre = genre,   # updated when n loads a new song's profile
+    )
 
-    # Non-blocking keyboard input (Windows compatible)
+    print("\nShow mode active. Press Ctrl+C to end and generate report.")
+    print("  s = board state   g = room analysis   b = baseline drift")
+    print("  n = next song     e = end song early\n")
+
     kb_queue: list[str] = []
     def kb_listener():
         while True:
@@ -153,46 +168,118 @@ def run_show_mode(band_cfg: dict, genre, osc: X32OSCClient,
     kb_thread = threading.Thread(target=kb_listener, daemon=True)
     kb_thread.start()
 
+    # ── Song transition helpers ──────────────────────────────────────────
+
+    def _end_current_song(silent: bool = False) -> None:
+        if not st.song_active:
+            return
+        logger.log_song_end()
+        engine.set_transition(True)
+        if not silent:
+            print(f"\n[{time.strftime('%H:%M:%S')}] SONG END — transition grace {grace_s}s")
+        st.song_active = False
+
+    def _start_song(idx: int, song) -> None:
+        # Load genre profile if the song specifies one
+        if song:
+            sg_id = song.get("genre_profile", default_genre)
+            if sg_id in profiles:
+                st.active_genre = profiles[sg_id]
+                engine.set_genre(st.active_genre)
+
+        engine.set_transition(False)   # clear any leftover grace from previous song
+        logger.log_song_start(song, max(idx + 1, 1), st.active_genre.id)
+        engine.set_transition(True)    # enter grace for this new song
+
+        ts = time.strftime("%H:%M:%S")
+        if song:
+            title  = song.get("title",  "?")
+            artist = song.get("artist", "?")
+            print(f"\n[{ts}] SONG START: {title} ({artist}) — {st.active_genre.id}")
+        else:
+            st.song_counter += 1
+            print(f"\n[{ts}] SONG START #{st.song_counter}")
+        print(f"  Transition grace: {grace_s}s")
+
+        st.song_idx    = idx
+        st.song_active = True
+
+    def _handle_next() -> None:
+        _end_current_song(silent=True)   # end silently; _start_song prints header
+
+        if setlist:
+            next_idx = st.song_idx + 1
+            if next_idx < len(setlist):
+                _start_song(next_idx, setlist[next_idx])
+            else:
+                print(f"\n[{time.strftime('%H:%M:%S')}] End of setlist — transition grace {grace_s}s")
+        else:
+            _start_song(-1, None)
+
+    def _handle_end_early() -> None:
+        if not st.song_active:
+            print("\nNo song currently active.")
+            return
+        _end_current_song()
+
+    # ── Main loop ────────────────────────────────────────────────────────
+
     try:
         while True:
             cycle_start = time.time()
 
-            # 1. Poll X32 — new snapshot via push state (already updating in background)
             current_channels = osc.build_channel_states()
 
-            # 2. Detect manual adjustments
-            logger.detect_and_log_adjustments(prev_channels, current_channels, thresholds)
+            adjustments = logger.detect_and_log_adjustments(
+                prev_channels, current_channels, thresholds
+            )
+            for adj in adjustments:
+                engine.notify_adjustment(adj.channel_num)
             prev_channels = {k: v for k, v in current_channels.items()}
 
-            # 3. Audio analysis
-            audio_buf, sr = capture.get_buffer()
+            audio_buf, _ = capture.get_buffer()
             analysis = analyzer.analyze(audio_buf)
+            logger.record_lufs(analysis.lufs)
 
-            # 4. Recommendation engine
             recs = engine.evaluate(analysis, current_channels)
             for rec in recs:
-                evt_id = logger.log_recommendation(rec)
+                logger.log_recommendation(rec)
                 print(rec.format_terminal())
                 print()
 
-            # 5. Keyboard commands
             while kb_queue:
                 cmd = kb_queue.pop(0)
                 if cmd == "s":
+                    if st.song_active:
+                        song_info  = (setlist[st.song_idx]
+                                      if setlist and 0 <= st.song_idx < len(setlist)
+                                      else None)
+                        title  = (song_info.get("title",  f"Song {st.song_counter}")
+                                  if song_info else f"Song {st.song_counter}")
+                        artist = song_info.get("artist", "") if song_info else ""
+                        elapsed_s = time.time() - logger._current_song_start
+                        m, s = divmod(int(max(elapsed_s, 0)), 60)
+                        artist_str = f" ({artist})" if artist else ""
+                        print(f"\nCurrent song: {title}{artist_str}"
+                              f" — {st.active_genre.id}  [{m}:{s:02d} elapsed]")
                     print_board_state(current_channels)
                 elif cmd == "g":
-                    print_room_analysis(analysis, genre)
+                    print_room_analysis(analysis, st.active_genre)
                 elif cmd == "b":
                     print_baseline_drift(current_channels, engine)
+                elif cmd == "n":
+                    _handle_next()
+                elif cmd == "e":
+                    _handle_end_early()
 
-            # Sleep remainder of 1s cycle
             elapsed = time.time() - cycle_start
-            sleep_time = max(0, 1.0 - elapsed)
-            time.sleep(sleep_time)
+            time.sleep(max(0, 1.0 - elapsed))
 
     except KeyboardInterrupt:
         pass
     finally:
+        if st.song_active:
+            logger.log_song_end()
         print(f"\n{SEP}")
         print(logger.generate_report())
 

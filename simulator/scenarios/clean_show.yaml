@@ -1,0 +1,53 @@
+name: "Clean Show"
+description: >
+  Well-run show — board stays balanced, all moves stay within detection thresholds.
+  Engine should generate minimal or no recommendations when run against a well-mixed
+  audio source. Use as a negative-test baseline: if recs fire on this scenario, tune
+  thresholds down.
+duration_s: 300
+
+initial_state:
+  channels:
+    1:  { fader_db: -3.0, eq: [{band: 1, gain: 0.0, freq: 60},  {band: 2, gain: 0.0, freq: 200},  {band: 3, gain: 0.0, freq: 2500}, {band: 4, gain: 0.0, freq: 10000}] }   # Kick
+    2:  { fader_db: -4.0, eq: [{band: 1, gain: 0.0, freq: 150}, {band: 2, gain: 0.0, freq: 300},  {band: 3, gain: 0.0, freq: 5000}, {band: 4, gain: 0.0, freq: 10000}] }   # Snare
+    3:  { fader_db: -6.0 }                                                                                                                                                    # Hi-Hat
+    4:  { fader_db: -8.0 }                                                                                                                                                    # Overhead L
+    5:  { fader_db: -8.0 }                                                                                                                                                    # Overhead R
+    6:  { fader_db: -10.0, muted: false }                                                                                                                                     # Drum Vocal — open, quiet
+    7:  { fader_db: -4.0, eq: [{band: 1, gain: 0.0, freq: 80},  {band: 2, gain: 0.0, freq: 250},  {band: 3, gain: 0.0, freq: 1000}, {band: 4, gain: 0.0, freq: 5000}] }   # Bass DI
+    8:  { fader_db: -5.0, muted: false }                                                                                                                                      # Bassist Vocal
+    9:  { fader_db: -2.0, eq: [{band: 1, gain: 0.0, freq: 80},  {band: 2, gain: 0.0, freq: 315},  {band: 3, gain: 0.0, freq: 2500}, {band: 4, gain: 0.0, freq: 8000}] }   # Guitar 1
+    10: { fader_db: -3.0, eq: [{band: 1, gain: 0.0, freq: 80},  {band: 2, gain: 0.0, freq: 315},  {band: 3, gain: 0.0, freq: 2500}, {band: 4, gain: 0.0, freq: 8000}] }   # Guitar 2
+    11: { fader_db: -4.0 }                                                                                                                                                    # Keys
+    12: { fader_db: -10.0, muted: true }                                                                                                                                      # Guitar 3 — muted, Keys active
+    13: { fader_db: -5.0,  muted: false }                                                                                                                                     # Keys Vocal
+    14: { fader_db: -1.0 }                                                                                                                                                    # Lead Vocal
+  main_fader_db: 0.0
+
+timeline:
+  # All moves are ≤ 0.5 dB — well under the 2 dB drift threshold and
+  # 3 dB rate-of-change suppression threshold. Engine should stay silent.
+
+  - at_s: 60
+    action: fader_move
+    channel: 14
+    target_db: -0.5
+    note: "Lead Vocal subtle pull-up (+0.5 dB) — below all thresholds"
+
+  - at_s: 120
+    action: fader_move
+    channel: 7
+    target_db: -3.5
+    note: "Bass DI slight push (+0.5 dB) — below all thresholds"
+
+  - at_s: 180
+    action: fader_move
+    channel: 9
+    target_db: -2.5
+    note: "Guitar 1 slight trim (-0.5 dB) — below all thresholds"
+
+  - at_s: 240
+    action: fader_move
+    channel: 14
+    target_db: -1.0
+    note: "Lead Vocal returned to initial — zero net drift"
