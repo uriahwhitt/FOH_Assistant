@@ -192,6 +192,7 @@ class X32OSCClient:
             self._send("/node", [f"ch/{ch}/eq"])
             self._send("/node", [f"ch/{ch}/dyn"])
             self._send("/node", [f"ch/{ch}/gate"])
+            self._send("/node", [f"ch/{ch}/preamp"])
         time.sleep(0.3)     # give X32 time to reply
         return self.build_channel_states()
 
@@ -242,6 +243,10 @@ class X32OSCClient:
                 paired_channel=ch_cfg.get("paired_channel"),
                 role=ch_cfg.get("role"),
                 priority=ch_cfg.get("priority"),
+                hpf_on=bool(raw.get("preamp_hpon", 0)),
+                hpf_freq_hz=eq_float_to_hz(raw.get("preamp_hpf", 0.3)),
+                hpf_slope=raw.get("preamp_hpslope", 1),
+                input_gain_db=raw.get("preamp_gain", 0.0),
             )
         return result
 
@@ -406,6 +411,12 @@ class X32OSCClient:
                 elif section == "gate" and len(values) >= 2:
                     raw["gate_on"] = int(values[0])
                     raw["gate_thr"] = float(values[1])
+                elif section == "preamp" and len(values) >= 5:
+                    # X32 preamp node field order: gain, invert, hpon, hpf, hpslope, lofilt
+                    raw["preamp_gain"] = float(values[0])
+                    raw["preamp_hpon"] = int(values[2])
+                    raw["preamp_hpf"] = float(values[3])
+                    raw["preamp_hpslope"] = int(values[4])
             self._last_push_time[ch_num] = time.time()
 
     def _handle_channel_param(self, address: str, *args) -> None:
@@ -448,6 +459,14 @@ class X32OSCClient:
                 raw["gate_thr"] = float(val)
             elif param_path == "gate/on":
                 raw["gate_on"] = int(val)
+            elif param_path == "preamp/gain":
+                raw["preamp_gain"] = float(val)
+            elif param_path == "preamp/hpon":
+                raw["preamp_hpon"] = int(val)
+            elif param_path == "preamp/hpf":
+                raw["preamp_hpf"] = float(val)
+            elif param_path == "preamp/hpslope":
+                raw["preamp_hpslope"] = int(val)
         self._last_push_time[ch_num] = time.time()
 
     def _handle_main_param(self, address: str, *args) -> None:

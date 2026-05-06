@@ -246,6 +246,10 @@ def _save_baseline(channels: dict[int, ChannelState], genre, band_name: str) -> 
             "comp_threshold_db": ch.comp_threshold_db,
             "gate_on": ch.gate_on,
             "gate_threshold_db": ch.gate_threshold_db,
+            "hpf_on": ch.hpf_on,
+            "hpf_freq_hz": round(ch.hpf_freq_hz, 1),
+            "hpf_slope": ch.hpf_slope,
+            "input_gain_db": round(ch.input_gain_db, 2),
         }
     with open(path, "w", encoding="utf-8") as f:
         json.dump(snapshot, f, indent=2)

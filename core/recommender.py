@@ -21,6 +21,59 @@ BAND_RANGES = {
     "air":       (12000, 20000),
 }
 
+# IMP-023a — named moves for common EQ corrections
+NAMED_MOVES = [
+    (20,    120,   "cut",   "HPF"),
+    (60,     80,   "boost", "Punch boost"),
+    (80,    150,   "boost", "Body boost"),
+    (200,   400,   "cut",   "Mud cut"),
+    (400,   800,   "cut",   "Boxiness cut"),
+    (800,  1500,   "cut",   "Honk cut"),
+    (2000, 5000,   "boost", "Presence boost"),
+    (3000, 5000,   "cut",   "Harshness cut"),
+    (5000, 9000,   "cut",   "Sibilance cut"),
+    (10000,20000,  "boost", "Air boost"),
+]
+
+
+def _named_move(freq_hz: float, direction: str) -> str:
+    for lo, hi, move_dir, name in NAMED_MOVES:
+        if lo <= freq_hz <= hi and move_dir == direction:
+            return name
+    return ""
+
+
+# IMP-023c — perceptual weighting by band
+BAND_PERCEPTUAL_WEIGHTS = {
+    "sub_bass":  0.6,
+    "bass":      0.8,
+    "low_mid":   1.0,
+    "mid":       1.1,
+    "high_mid":  1.3,
+    "presence":  1.2,
+    "air":       0.9,
+}
+
+
+def _band_covers_problem(eq_band, lo: int, hi: int) -> bool:
+    return lo <= eq_band.freq_hz <= hi
+
+
+def _q_advice(eq_band, direction: str) -> str:
+    q = eq_band.q
+    if direction == "cut":
+        if q < 1.0:
+            return (f"Q={q:.1f} is very broad for a cut "
+                    f"— consider Q≈2.0 for focused correction")
+        if q > 8.0:
+            return (f"Q={q:.1f} is notch-narrow "
+                    f"— use Q≈2.0 for mix EQ cuts (reserve Q>8 for feedback notches)")
+    elif direction == "boost":
+        if q > 2.0:
+            return (f"Q={q:.1f} is narrow for a boost "
+                    f"— narrow boosts sound unnatural; widen to Q≈1.0")
+    return ""
+
 
 @dataclass
 class Recommendation:
@@ -229,9 +282,12 @@ class RecommendationEngine:
                 continue
             normalized = raw_level - median_level       # relative to mix median
             target_offset = self._genre.target_for_band(band)
-            deviation = normalized - target_offset
-            if abs(deviation) <= threshold:
+            raw_deviation = normalized - target_offset
+            weight = BAND_PERCEPTUAL_WEIGHTS.get(band, 1.0)
+            weighted_deviation = raw_deviation * weight
+            if abs(weighted_deviation) <= threshold:
                 continue
+            deviation = raw_deviation  # report raw in output
 
             culprit = self._find_culprit(band, channels, deviation)
             if culprit is None:
@@ -439,25 +495,25 @@ class RecommendationEngine:
                 continue
 
             fp = self._fingerprints.get(ch.label, {})
-            primary   = fp.get("primary", [])
-            secondary = fp.get("secondary", [])
-
-            overlap_score = 0
-            if primary and len(primary) == 2:
-                fp_lo, fp_hi = primary
-                overlap = min(fp_hi, hi) - max(fp_lo, lo)
-                if overlap > 0:
-                    band_width = hi - lo
-                    overlap_score = (overlap / band_width) * 2.0
-            if secondary and len(secondary) == 2:
-                fp_lo, fp_hi = secondary
+            overlap_score = 0.0
+            for zone_name, zone_range in fp.items():
+                if not (isinstance(zone_range, (list, tuple)) and len(zone_range) == 2):
+                    continue
+                fp_lo, fp_hi = zone_range
                 overlap = min(fp_hi, hi) - max(fp_lo, lo)
                 if overlap > 0:
                     band_width = hi - lo
                     overlap_score += overlap / band_width
 
             if overlap_score > 0:
-                candidates.append((overlap_score * (ch.rms_db + 90), ch))
+                eq_boost_in_band = 0.0
+                for eq_band in ch.eq:
+                    if eq_band.type in (0, 5):
+                        continue
+                    if lo <= eq_band.freq_hz <= hi and eq_band.gain_db > 0:
+                        eq_boost_in_band += eq_band.gain_db
+                composite_score = overlap_score * (ch.rms_db + 90) + (eq_boost_in_band * 6.0)
+                candidates.append((composite_score, ch))
 
         if not candidates:
             return None
@@ -487,10 +543,16 @@ class RecommendationEngine:
                 best_dist = dist
                 best_band = eq_band
 
+        direction = "cut" if deviation > 0 else "boost"
+
         if best_band is None:
             action = "cut" if deviation > 0 else "boost"
-            return "", (f"Add EQ point on {ch.label} in the {lo}-{hi}Hz range "
-                        f"({action} ~{mid_freq}Hz)")
+            suggest = (f"Add EQ point on {ch.label} in the {lo}-{hi}Hz range "
+                       f"({action} ~{mid_freq}Hz)")
+            name = _named_move(mid_freq, direction)
+            if name:
+                suggest = f"{name} — {suggest}"
+            return "", suggest
 
         eq_detail = (f"EQ Band {best_band.band_num} {best_band.gain_db:+.1f}dB "
                      f"@ {best_band.freq_hz:.0f}Hz")
@@ -503,5 +565,19 @@ class RecommendationEngine:
             new_gain = best_band.gain_db + min(abs(deviation), 3.0)
             suggest  = (f"EQ Band {best_band.band_num} boost to "
                         f"{new_gain:+.1f}dB @ {best_band.freq_hz:.0f}Hz")
+
+        # IMP-023a — prepend named move
+        name = _named_move(best_band.freq_hz, direction)
+        if name:
+            suggest = f"{name} — {suggest}"
+
+        # IMP-023b — position and Q advice
+        if not _band_covers_problem(best_band, lo, hi):
+            suggest += (f" | Band {best_band.band_num} is at {best_band.freq_hz:.0f}Hz"
+                        f" — move to {mid_freq}Hz first")
+
+        q_note = _q_advice(best_band, direction)
+        if q_note:
+            suggest += f" | {q_note}"
 
         return eq_detail, suggest

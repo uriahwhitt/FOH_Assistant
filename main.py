@@ -31,10 +31,11 @@ SEP = "=" * 47
 def main() -> None:
     parser = argparse.ArgumentParser(description="FOH Assistant")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--show",     action="store_true", help="Live show advisory mode")
-    group.add_argument("--baseline", action="store_true", help="Soundcheck / baseline mode")
-    group.add_argument("--devices",  action="store_true", help="List audio input devices")
-    group.add_argument("--test-osc", action="store_true", help="Test X32 connection")
+    group.add_argument("--show",       action="store_true", help="Live show advisory mode")
+    group.add_argument("--baseline",   action="store_true", help="Soundcheck / baseline mode")
+    group.add_argument("--soundcheck", action="store_true", help="Soundcheck advisory mode")
+    group.add_argument("--devices",    action="store_true", help="List audio input devices")
+    group.add_argument("--test-osc",   action="store_true", help="Test X32 connection")
     parser.add_argument("--x32-ip",      help="Override X32 IP address")
     parser.add_argument("--device-index", type=int, default=None,
                         help="Force specific audio device by index (bypasses name matching)")
@@ -106,7 +107,7 @@ def main() -> None:
     channels = osc.snapshot_all_channels()
 
     # Session logger
-    mode_label = "baseline" if args.baseline else "show"
+    mode_label = "baseline" if args.baseline else ("soundcheck" if args.soundcheck else "show")
     logger = SessionLogger(
         band_name=band_cfg["band"],
         mode=mode_label,
@@ -122,6 +123,11 @@ def main() -> None:
         from core.baseline import run_baseline_mode
         run_baseline_mode(band_cfg, profiles, active_genre, osc, capture,
                           analyzer, logger, channels)
+    elif args.soundcheck:
+        from core.soundcheck import check_hpf, check_gain_staging, check_compressor_sanity
+        run_soundcheck_mode(band_cfg, active_genre, profiles, setlist,
+                            osc, capture, analyzer, logger, channels,
+                            check_hpf, check_gain_staging, check_compressor_sanity)
     else:
         run_show_mode(band_cfg, active_genre, profiles, setlist,
                       osc, capture, analyzer, logger, channels)
@@ -173,6 +179,7 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
     def _end_current_song(silent: bool = False) -> None:
         if not st.song_active:
             return
+        engine.set_transition(False)   # cancel any active grace first
         logger.log_song_end()
         engine.set_transition(True)
         if not silent:
@@ -282,6 +289,114 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
             logger.log_song_end()
         print(f"\n{SEP}")
         print(logger.generate_report())
+
+
+# ---------------------------------------------------------------------------
+# Soundcheck mode (IMP-021)
+# ---------------------------------------------------------------------------
+
+def run_soundcheck_mode(band_cfg: dict, genre, profiles: dict, setlist,
+                        osc: X32OSCClient, capture: AudioCapture, analyzer: Analyzer,
+                        logger: SessionLogger, initial_channels: dict,
+                        check_hpf, check_gain_staging, check_compressor_sanity) -> None:
+    """Soundcheck advisory mode — continuous real-time advisory, no drift checks.
+
+    Type 'confirm' to lock baseline and exit.
+    Ctrl+C to abort without saving.
+    """
+    thresholds = band_cfg.get("thresholds", {})
+    soundcheck_thresholds = thresholds.copy()
+    soundcheck_thresholds["recommendation_cooldown_s"] = 20
+
+    sc_cfg = dict(band_cfg)
+    sc_cfg["thresholds"] = soundcheck_thresholds
+
+    engine = RecommendationEngine(sc_cfg, genre)
+
+    current_channels = initial_channels.copy()
+    default_genre = band_cfg.get("default_genre", "Glam Metal")
+
+    x32_cfg = band_cfg.get("x32", {})
+    x32_ip = x32_cfg.get("ip", "?")
+    x32_port = x32_cfg.get("port", 10023)
+    print(SEP)
+    print("FOH ASSISTANT — SOUNDCHECK MODE")
+    print(f"Band:    {band_cfg['band']}")
+    print(f"Genre:   {genre.id} (soundcheck reference)")
+    print(f"X32:     {x32_ip}:{x32_port}")
+    print(f"Cooldown: 20s  |  No baseline set — advisory only")
+    print("Type 'confirm' when satisfied to lock baseline.")
+    print(SEP)
+
+    kb_queue: list[str] = []
+
+    def kb_listener():
+        while True:
+            line = sys.stdin.readline().strip().lower()
+            kb_queue.append(line)
+
+    kb_thread = threading.Thread(target=kb_listener, daemon=True)
+    kb_thread.start()
+
+    try:
+        while True:
+            cycle_start = time.time()
+
+            current_channels = osc.build_channel_states()
+            audio_buf, _ = capture.get_buffer()
+            analysis = analyzer.analyze(audio_buf)
+            logger.record_lufs(analysis.lufs)
+
+            recs = engine.evaluate(analysis, current_channels)
+            for rec in recs:
+                print(rec.format_terminal())
+                print()
+
+            for ch in current_channels.values():
+                hpf_msg = check_hpf(ch)
+                if hpf_msg:
+                    print(f"[{time.strftime('%H:%M:%S')}] {hpf_msg}")
+                    print()
+                gs_msg = check_gain_staging(ch)
+                if gs_msg:
+                    print(f"[{time.strftime('%H:%M:%S')}] {gs_msg}")
+                    print()
+                comp_msg = check_compressor_sanity(ch)
+                if comp_msg:
+                    print(f"[{time.strftime('%H:%M:%S')}] {comp_msg}")
+                    print()
+
+            while kb_queue:
+                cmd = kb_queue.pop(0)
+                if cmd == "s":
+                    print_board_state(current_channels)
+                elif cmd == "g":
+                    print_room_analysis(analysis, genre)
+                elif cmd == "confirm":
+                    _soundcheck_confirm(current_channels, genre, band_cfg, logger)
+                    return
+
+            elapsed = time.time() - cycle_start
+            time.sleep(max(0, 1.0 - elapsed))
+
+    except KeyboardInterrupt:
+        print("\nSoundcheck aborted — no baseline saved.")
+
+
+def _soundcheck_confirm(channels: dict, genre, band_cfg: dict,
+                        logger: SessionLogger) -> None:
+    """Lock baseline at end of soundcheck, print summary, exit."""
+    from core.baseline import _save_baseline
+    _save_baseline(channels, genre, band_cfg["band"])
+    ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    active_count = sum(1 for ch in channels.values() if ch.is_active())
+    print(f"\n{SEP}")
+    print(f"BASELINE LOCKED — {ts}")
+    print(f"Channels captured: {len(channels)}")
+    print(f"Launch show mode: python main.py --show")
+    print(SEP)
+    logger.log_event("SOUNDCHECK_COMPLETE",
+                     detail=f"channels={len(channels)} active={active_count}")
 
 
 # ---------------------------------------------------------------------------

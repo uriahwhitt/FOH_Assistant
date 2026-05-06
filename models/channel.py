@@ -35,6 +35,12 @@ class ChannelState:
     role: Optional[str] = None          # shared_lead_rhythm
     priority: Optional[str] = None      # very_high | high | medium | low | none
 
+    # Preamp / HPF state (from X32 preamp node — IMP-022)
+    hpf_on: bool = False
+    hpf_freq_hz: float = 80.0
+    hpf_slope: int = 1                  # 0=6dB/oct, 1=12dB/oct, 2=18dB/oct, 3=24dB/oct
+    input_gain_db: float = 0.0
+
     def is_active(self) -> bool:
         """Returns False if channel is muted or below its inactive threshold."""
         if self.muted:

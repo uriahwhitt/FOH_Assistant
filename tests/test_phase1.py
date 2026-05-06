@@ -1895,3 +1895,696 @@ class TestOSCClientPollFallback:
         stale = [ch for ch in client._channel_map
                  if client._is_channel_stale(ch, now, stale_s)]
         assert len(stale) == 14   # none have been heard from
+
+
+# ===========================================================================
+# IMP-020 — TRANSITION GRACE CANCELS IMMEDIATELY ON SONG START
+# ===========================================================================
+
+class TestTransitionGraceIMP020:
+    def _engine(self, grace_s: float = 8.0):
+        cfg = _minimal_band_cfg()
+        cfg["thresholds"]["transition_grace_seconds"] = grace_s
+        return RecommendationEngine(cfg, _make_glam_profile())
+
+    def test_double_next_gives_fresh_8s_grace(self):
+        """Simulating 'n' pressed twice: second grace is fresh 8s, not stacked."""
+        engine = self._engine(grace_s=8.0)
+        # First transition start
+        engine.set_transition(False)
+        engine.set_transition(True)
+        first_end = engine._transition_end
+
+        # Brief pause, then second transition (simulating rapid 'n' again)
+        before = time.time()
+        engine.set_transition(False)
+        engine.set_transition(True)
+        second_end = engine._transition_end
+        after = time.time()
+
+        # Second end should be ~8s from now, not ~16s
+        assert before + 8.0 <= second_end <= after + 8.0
+
+    def test_cancel_then_restart_gives_fresh_grace(self):
+        """After set_transition(True) -> set_transition(False) -> set_transition(True),
+        grace should be ~8s from the last set_transition(True) call."""
+        engine = self._engine(grace_s=8.0)
+        engine.set_transition(True)
+        before = time.time()
+        engine.set_transition(False)
+        engine.set_transition(True)
+        after = time.time()
+
+        assert engine._in_transition is True
+        assert before + 8.0 <= engine._transition_end <= after + 8.0
+
+    def test_transition_fires_and_suppresses_for_8s(self):
+        """Grace still fires and suppresses for 8 seconds when set."""
+        engine = self._engine(grace_s=8.0)
+        before = time.time()
+        engine.set_transition(True)
+        after = time.time()
+
+        assert engine._in_transition is True
+        assert before + 8.0 <= engine._transition_end <= after + 8.0
+        # Verify it suppresses LUFS
+        room = _make_room(lufs=-12.0)
+        recs = engine.evaluate(room, {1: _make_channel()})
+        assert not any(r.issue in ("lufs_hot", "lufs_low") for r in recs)
+
+    def test_transition_grace_seconds_is_8_in_band_yaml(self):
+        """Verify transition_grace_seconds is 8 in band.yaml."""
+        from core.config_loader import load_band_config
+        cfg = load_band_config()
+        assert cfg["thresholds"]["transition_grace_seconds"] == 8
+
+    def test_end_current_song_cancels_grace_before_restart(self):
+        """set_transition(False) then set_transition(True) in rapid sequence:
+        end state has ~8s grace, not stacked time."""
+        engine = self._engine(grace_s=8.0)
+        # Manually set a long transition_end to simulate stacked scenario
+        engine._in_transition = True
+        engine._transition_end = time.time() + 100.0   # artificially long
+
+        # Cancelling and restarting should reset to 8s
+        before = time.time()
+        engine.set_transition(False)
+        engine.set_transition(True)
+        after = time.time()
+
+        assert before + 8.0 <= engine._transition_end <= after + 8.0
+
+
+# ===========================================================================
+# IMP-025 — FREQUENCY FINGERPRINT CORRECTIONS
+# ===========================================================================
+
+class TestFingerprintIMP025:
+    def _engine_with_guitars(self):
+        cfg = _minimal_band_cfg()
+        cfg["frequency_fingerprints"] = {
+            "Guitar 1": {"body": [200, 1000], "bite": [2000, 5000]},
+            "Guitar 2": {"body": [200, 1000], "bite": [2000, 5000]},
+        }
+        cfg["channels"] = {
+            7: {"label": "Guitar 1", "type": "instrument"},
+            8: {"label": "Guitar 2", "type": "instrument"},
+        }
+        return RecommendationEngine(cfg, _make_glam_profile())
+
+    def _engine_with_bass(self):
+        cfg = _minimal_band_cfg()
+        cfg["frequency_fingerprints"] = {
+            "Bass": {"primary": [40, 250], "definition": [700, 1000], "attack": [2000, 4000]},
+        }
+        cfg["channels"] = {13: {"label": "Bass", "type": "instrument"}}
+        return RecommendationEngine(cfg, _make_glam_profile())
+
+    def _engine_with_guitar_and_kick(self):
+        cfg = _minimal_band_cfg()
+        cfg["frequency_fingerprints"] = {
+            "Guitar 1": {"body": [200, 1000], "bite": [2000, 5000]},
+            "Kick": {"fundamental": [50, 80], "body": [80, 150],
+                     "click": [2000, 4000], "mud_zone": [300, 500]},
+        }
+        cfg["channels"] = {
+            7: {"label": "Guitar 1", "type": "instrument"},
+            1: {"label": "Kick", "type": "instrument"},
+        }
+        return RecommendationEngine(cfg, _make_glam_profile())
+
+    def test_guitar1_culprit_for_low_mid_buildup(self):
+        """_find_culprit() correctly finds Guitar 1 as low-mid culprit via body zone."""
+        engine = self._engine_with_guitars()
+        guitar1 = _make_channel(num=7, label="Guitar 1", rms_db=-20.0)
+        culprit = engine._find_culprit("low_mid", {7: guitar1}, 5.0)
+        assert culprit is not None
+        assert culprit.label == "Guitar 1"
+
+    def test_guitar1_culprit_for_high_mid_buildup(self):
+        """_find_culprit() correctly finds Guitar 1 as high-mid culprit via bite zone."""
+        engine = self._engine_with_guitars()
+        guitar1 = _make_channel(num=7, label="Guitar 1", rms_db=-20.0)
+        culprit = engine._find_culprit("high_mid", {7: guitar1}, 5.0)
+        assert culprit is not None
+        assert culprit.label == "Guitar 1"
+
+    def test_bass_culprit_for_mid_band_via_definition_zone(self):
+        """Bass definition zone (700-1000Hz) overlaps with mid band (500-2000Hz)."""
+        engine = self._engine_with_bass()
+        bass = _make_channel(num=13, label="Bass", rms_db=-20.0)
+        culprit = engine._find_culprit("mid", {13: bass}, 5.0)
+        assert culprit is not None
+        assert culprit.label == "Bass"
+
+    def test_guitar1_outscores_kick_in_low_mid(self):
+        """Guitar 1 body zone (200-1000Hz) gives more low-mid overlap than
+        Kick mud_zone (300-500Hz), so Guitar 1 should be the culprit when both
+        are active at the same RMS."""
+        engine = self._engine_with_guitar_and_kick()
+        guitar1 = _make_channel(num=7, label="Guitar 1", rms_db=-20.0)
+        kick = _make_channel(num=1, label="Kick", rms_db=-20.0)
+        channels = {7: guitar1, 1: kick}
+        culprit = engine._find_culprit("low_mid", channels, 5.0)
+        assert culprit is not None
+        assert culprit.label == "Guitar 1"
+
+
+# ===========================================================================
+# IMP-022 — READ HPF STATE AND INPUT GAIN FROM X32
+# ===========================================================================
+
+class TestChannelStateHPFIMP022:
+    def test_default_hpf_fields(self):
+        """ChannelState instantiates with default HPF fields."""
+        ch = _make_channel()
+        assert ch.hpf_on is False
+        assert ch.hpf_freq_hz == 80.0
+        assert ch.hpf_slope == 1
+        assert ch.input_gain_db == 0.0
+
+    def test_explicit_hpf_fields(self):
+        """ChannelState accepts explicit HPF/gain values."""
+        ch = ChannelState(
+            channel_num=7,
+            label="Guitar 1",
+            fader_db=0.0,
+            muted=False,
+            eq=[_make_eq_band(n + 1) for n in range(4)],
+            comp_on=False,
+            comp_threshold_db=-20.0,
+            comp_ratio_index=3,
+            gate_on=False,
+            gate_threshold_db=-40.0,
+            rms_linear=0.1,
+            rms_db=-20.0,
+            timestamp=time.time(),
+            hpf_on=True,
+            hpf_freq_hz=100.0,
+            hpf_slope=1,
+            input_gain_db=35.0,
+        )
+        assert ch.hpf_on is True
+        assert ch.hpf_freq_hz == 100.0
+        assert ch.hpf_slope == 1
+        assert ch.input_gain_db == 35.0
+
+
+class TestOSCClientHPFIMP022:
+    def _client(self):
+        return X32OSCClient(
+            ip="127.0.0.1", port=10023,
+            channel_map={1: {"label": "Kick", "type": "instrument"}},
+        )
+
+    def test_preamp_hpon_1_maps_to_hpf_on_true(self):
+        """preamp_hpon=1 → hpf_on=True in build_channel_states()."""
+        client = self._client()
+        with client._state_lock:
+            client._state[1] = {
+                "fader": 0.75, "mute": 1,
+                "preamp_hpon": 1,
+                "preamp_hpf": 0.3,
+                "preamp_hpslope": 1,
+                "preamp_gain": 0.0,
+            }
+        channels = client.build_channel_states()
+        assert channels[1].hpf_on is True
+
+    def test_preamp_hpon_0_maps_to_hpf_on_false(self):
+        """preamp_hpon=0 → hpf_on=False in build_channel_states()."""
+        client = self._client()
+        with client._state_lock:
+            client._state[1] = {
+                "fader": 0.75, "mute": 1,
+                "preamp_hpon": 0,
+                "preamp_hpf": 0.3,
+                "preamp_hpslope": 1,
+                "preamp_gain": 0.0,
+            }
+        channels = client.build_channel_states()
+        assert channels[1].hpf_on is False
+
+    def test_hpf_freq_converted_from_x32_float(self):
+        """HPF frequency is correctly converted from X32 float to Hz."""
+        from core.osc_client import eq_float_to_hz
+        client = self._client()
+        # 0.3 ≈ 80Hz on the log scale
+        with client._state_lock:
+            client._state[1] = {
+                "fader": 0.75, "mute": 1,
+                "preamp_hpon": 1,
+                "preamp_hpf": 0.3,
+                "preamp_hpslope": 1,
+                "preamp_gain": 0.0,
+            }
+        channels = client.build_channel_states()
+        expected = eq_float_to_hz(0.3)
+        assert channels[1].hpf_freq_hz == pytest.approx(expected, rel=1e-4)
+
+    def test_handle_node_preamp_parses_fields(self):
+        """_handle_node() correctly parses preamp node values."""
+        client = self._client()
+        # preamp node: gain, invert, hpon, hpf, hpslope, lofilt
+        client._handle_node("/node", "ch/01/preamp", 12.0, 0, 1, 0.3, 1, 0)
+        with client._state_lock:
+            raw = client._state.get(1, {})
+        assert raw.get("preamp_gain") == pytest.approx(12.0)
+        assert raw.get("preamp_hpon") == 1
+        assert raw.get("preamp_hpf") == pytest.approx(0.3)
+        assert raw.get("preamp_hpslope") == 1
+
+    def test_handle_channel_param_preamp_hpon(self):
+        """Individual preamp/hpon param push is parsed correctly."""
+        client = self._client()
+        client._handle_channel_param("/ch/01/preamp/hpon", 1)
+        with client._state_lock:
+            raw = client._state.get(1, {})
+        assert raw.get("preamp_hpon") == 1
+
+    def test_handle_channel_param_preamp_gain(self):
+        """Individual preamp/gain param push is parsed correctly."""
+        client = self._client()
+        client._handle_channel_param("/ch/01/preamp/gain", 24.0)
+        with client._state_lock:
+            raw = client._state.get(1, {})
+        assert raw.get("preamp_gain") == pytest.approx(24.0)
+
+
+class TestBaselineSnapshotHPFIMP022:
+    def test_baseline_snapshot_includes_hpf_fields(self, tmp_path):
+        """_save_baseline() includes hpf_on, hpf_freq_hz, hpf_slope, input_gain_db."""
+        import json
+        from core.baseline import _save_baseline
+
+        orig_shows_dir = None
+        import core.baseline as _bl_module
+        orig = _bl_module.SHOWS_DIR
+        _bl_module.SHOWS_DIR = tmp_path
+        try:
+            ch = ChannelState(
+                channel_num=7,
+                label="Guitar 1",
+                fader_db=0.0,
+                muted=False,
+                eq=[_make_eq_band(n + 1) for n in range(4)],
+                comp_on=False,
+                comp_threshold_db=-20.0,
+                comp_ratio_index=3,
+                gate_on=False,
+                gate_threshold_db=-40.0,
+                rms_linear=0.1,
+                rms_db=-20.0,
+                timestamp=time.time(),
+                hpf_on=True,
+                hpf_freq_hz=100.0,
+                hpf_slope=1,
+                input_gain_db=24.0,
+            )
+            genre = _make_glam_profile()
+            _save_baseline({7: ch}, genre, "Test Band")
+            # Find the saved file
+            saved_files = list(tmp_path.glob("*.json"))
+            assert len(saved_files) == 1
+            data = json.loads(saved_files[0].read_text())
+            ch_data = data["channels"]["7"]
+            assert "hpf_on" in ch_data
+            assert ch_data["hpf_on"] is True
+            assert "hpf_freq_hz" in ch_data
+            assert ch_data["hpf_freq_hz"] == pytest.approx(100.0, abs=0.2)
+            assert "hpf_slope" in ch_data
+            assert ch_data["hpf_slope"] == 1
+            assert "input_gain_db" in ch_data
+            assert ch_data["input_gain_db"] == pytest.approx(24.0, abs=0.01)
+        finally:
+            _bl_module.SHOWS_DIR = orig
+
+
+# ===========================================================================
+# IMP-023 — FULL PARAMETRIC EQ ADVISORY
+# ===========================================================================
+
+from core.recommender import _named_move, _q_advice, BAND_PERCEPTUAL_WEIGHTS
+
+
+class TestEQAdvisoryIMP023:
+    def _engine(self, trigger_db=3.0):
+        cfg = _minimal_band_cfg()
+        cfg["thresholds"]["recommendation_trigger_db"] = trigger_db
+        cfg["frequency_fingerprints"] = {
+            "Kick": {"fundamental": [50, 80], "body": [80, 150],
+                     "click": [2000, 4000], "mud_zone": [300, 500]},
+            "Lead Vocal": {"primary": [100, 4000], "intelligibility": [1000, 4000],
+                           "sibilance": [5000, 9000]},
+        }
+        cfg["channels"] = {
+            1: {"label": "Kick", "type": "instrument"},
+            9: {"label": "Lead Vocal", "type": "vocal"},
+        }
+        return RecommendationEngine(cfg, _make_glam_profile())
+
+    # ── _named_move tests ─────────────────────────────────────────────────────
+
+    def test_named_move_mud_cut(self):
+        assert _named_move(315, "cut") == "Mud cut"
+
+    def test_named_move_harshness_cut(self):
+        assert _named_move(3500, "cut") == "Harshness cut"
+
+    def test_named_move_presence_boost(self):
+        assert _named_move(2500, "boost") == "Presence boost"
+
+    def test_named_move_no_match(self):
+        assert _named_move(6000, "boost") == ""
+
+    # ── Named move in EQ recommendation ──────────────────────────────────────
+
+    def test_eq_recommendation_prefixed_with_named_move(self):
+        """EQ recommendation for a low-mid cut starts with 'Mud cut —'."""
+        engine = self._engine()
+        ch = _make_channel(num=1, label="Kick", rms_db=-20.0)
+        # Set an EQ band at 315Hz (within Mud cut zone 200-400Hz, in low_mid 250-500Hz)
+        ch.eq[0] = EQBand(band_num=1, type=2, freq_hz=315.0, gain_db=2.0, q=1.0)
+        eq_detail, suggest = engine._eq_recommendation(ch, "low_mid", 4.0)
+        assert "Mud cut" in suggest
+
+    def test_eq_recommendation_mispositioned_band_includes_move_to(self):
+        """EQ recommendation for mispositioned band includes 'move to' string."""
+        engine = self._engine()
+        ch = _make_channel(num=1, label="Kick", rms_db=-20.0)
+        # Band at 3000Hz but problem is low_mid (250-500Hz) — mispositioned
+        ch.eq[0] = EQBand(band_num=1, type=2, freq_hz=3000.0, gain_db=2.0, q=1.0)
+        # Note: 3000Hz is within 2 octaves of low_mid mid_freq=375Hz (375/4=93.75, 375*4=1500)
+        # Actually 3000 > 1500 so it's outside 2 octaves — "Add EQ point" will fire
+        # Use mid band (mid_freq=1250, range 312.5-5000) and put band outside
+        ch2 = _make_channel(num=9, label="Lead Vocal", rms_db=-20.0)
+        # Place band at 100Hz — outside 2-octave range of mid (312.5-5000Hz) → Add EQ
+        ch2.eq[0] = EQBand(band_num=1, type=2, freq_hz=100.0, gain_db=2.0, q=1.0)
+        for i in range(1, 4):
+            ch2.eq[i] = EQBand(band_num=i + 1, type=2, freq_hz=100.0, gain_db=0.0, q=1.0)
+        # Use a band that IS in range but at the wrong freq — within 2 octaves but outside band
+        # sub_bass mid_freq=50Hz. Place band at 200Hz (within 2 octaves: 12.5-200Hz → right at edge)
+        # Put band within 2 octaves but outside actual band range
+        # high_mid mid_freq=4000Hz, 2-octave range: 1000-16000Hz, band range: 2000-6000Hz
+        # Put band at 1200Hz — within 2 octaves but below band lo=2000Hz
+        ch3 = _make_channel(num=9, label="Lead Vocal", rms_db=-20.0)
+        ch3.eq[0] = EQBand(band_num=1, type=2, freq_hz=1200.0, gain_db=2.0, q=1.0)
+        for i in range(1, 4):
+            ch3.eq[i] = EQBand(band_num=i + 1, type=2, freq_hz=1200.0, gain_db=0.0, q=1.0)
+        eq_detail, suggest = engine._eq_recommendation(ch3, "high_mid", 4.0)
+        assert "move to" in suggest
+
+    # ── Q advice tests ────────────────────────────────────────────────────────
+
+    def test_q_advice_fires_for_broad_cut(self):
+        """Q advice fires for Q=0.4 on a cut (too broad)."""
+        eq = EQBand(band_num=1, type=2, freq_hz=315.0, gain_db=-3.0, q=0.4)
+        advice = _q_advice(eq, "cut")
+        assert advice != ""
+        assert "broad" in advice.lower()
+
+    def test_q_advice_fires_for_narrow_boost(self):
+        """Q advice fires for Q=3.0 on a boost (too narrow)."""
+        eq = EQBand(band_num=1, type=2, freq_hz=1000.0, gain_db=3.0, q=3.0)
+        advice = _q_advice(eq, "boost")
+        assert advice != ""
+        assert "narrow" in advice.lower()
+
+    def test_q_advice_silent_for_appropriate_cut(self):
+        """Q advice does NOT fire for Q=2.0 on a cut (appropriate)."""
+        eq = EQBand(band_num=1, type=2, freq_hz=315.0, gain_db=-3.0, q=2.0)
+        advice = _q_advice(eq, "cut")
+        assert advice == ""
+
+    def test_q_advice_silent_for_appropriate_boost(self):
+        """Q advice does NOT fire for Q=1.0 on a boost (appropriate)."""
+        eq = EQBand(band_num=1, type=2, freq_hz=1000.0, gain_db=3.0, q=1.0)
+        advice = _q_advice(eq, "boost")
+        assert advice == ""
+
+    # ── Psychoacoustic weighting tests ────────────────────────────────────────
+
+    def _engine_with_vocal(self, trigger_db=3.0):
+        cfg = _minimal_band_cfg()
+        cfg["thresholds"]["recommendation_trigger_db"] = trigger_db
+        cfg["frequency_fingerprints"] = {
+            "Lead Vocal": {"primary": [100, 4000], "intelligibility": [1000, 4000],
+                           "sibilance": [5000, 9000]},
+        }
+        cfg["channels"] = {9: {"label": "Lead Vocal", "type": "vocal"}}
+        return RecommendationEngine(cfg, _make_glam_profile())
+
+    def test_high_mid_2pt4db_fires_with_trigger_3db(self):
+        """2.4dB high-mid deviation fires when trigger_db=3.0 (weighted: 3.12 >= 3.0)."""
+        engine = self._engine_with_vocal(trigger_db=3.0)
+        # high_mid weight = 1.3, so 2.4 * 1.3 = 3.12 >= 3.0 → should trigger
+        vocal = _make_channel(num=9, label="Lead Vocal", rms_db=-20.0)
+        # Build bands where high_mid is 2.4dB above median
+        bands = {b: -30.0 for b in BAND_NAMES}
+        # median will be -30. high_mid at -27.6 → normalized = 2.4 above target 0.0
+        bands["high_mid"] = -27.6
+        room = RoomAnalysis(
+            lufs=-18.0, rms_db=-20.0, bands=bands,
+            band_delta={b: 0.0 for b in BAND_NAMES},
+            lufs_delta=0.0, timestamp=time.time(),
+        )
+        # Reset cooldown to ensure we can fire
+        recs = engine.evaluate(room, {9: vocal})
+        high_mid_recs = [r for r in recs if "high_mid" in r.issue]
+        assert len(high_mid_recs) >= 1, (
+            f"Expected high_mid rec (2.4dB * weight 1.3 = 3.12 >= 3.0), got: {recs}"
+        )
+
+    def test_sub_bass_3db_does_not_fire_with_trigger_3db(self):
+        """3.0dB sub-bass deviation does NOT fire when trigger_db=3.0 (weighted: 1.8 < 3.0)."""
+        cfg = _minimal_band_cfg()
+        cfg["thresholds"]["recommendation_trigger_db"] = 3.0
+        cfg["frequency_fingerprints"] = {
+            "Kick": {"fundamental": [50, 80], "body": [80, 150]},
+        }
+        cfg["channels"] = {1: {"label": "Kick", "type": "instrument"}}
+        engine = RecommendationEngine(cfg, _make_glam_profile())
+        # sub_bass weight = 0.6, so 3.0 * 0.6 = 1.8 < 3.0 → should NOT trigger
+        kick = _make_channel(num=1, label="Kick", rms_db=-20.0)
+        bands = {b: -30.0 for b in BAND_NAMES}
+        # median = -30, sub_bass at -27 → normalized = 3.0
+        bands["sub_bass"] = -27.0
+        room = RoomAnalysis(
+            lufs=-18.0, rms_db=-20.0, bands=bands,
+            band_delta={b: 0.0 for b in BAND_NAMES},
+            lufs_delta=0.0, timestamp=time.time(),
+        )
+        recs = engine.evaluate(room, {1: kick})
+        sub_recs = [r for r in recs if "sub_bass" in r.issue]
+        assert len(sub_recs) == 0, (
+            f"sub_bass 3.0dB * weight 0.6 = 1.8 < 3.0 should not fire, got: {sub_recs}"
+        )
+
+    def test_culprit_with_eq_boost_ranks_above_flat_eq(self):
+        """Culprit with EQ boost in problem band ranks above culprit with same RMS but flat EQ."""
+        cfg = _minimal_band_cfg()
+        cfg["frequency_fingerprints"] = {
+            "Guitar 1": {"body": [200, 1000], "bite": [2000, 5000]},
+            "Guitar 2": {"body": [200, 1000], "bite": [2000, 5000]},
+        }
+        cfg["channels"] = {
+            7: {"label": "Guitar 1", "type": "instrument"},
+            8: {"label": "Guitar 2", "type": "instrument"},
+        }
+        engine = RecommendationEngine(cfg, _make_glam_profile())
+
+        # Both guitars at same RMS
+        guitar1 = _make_channel(num=7, label="Guitar 1", rms_db=-20.0)
+        guitar2 = _make_channel(num=8, label="Guitar 2", rms_db=-20.0)
+        # Guitar 1 has a 6dB boost in the low_mid band (250-500Hz)
+        guitar1.eq[0] = EQBand(band_num=1, type=2, freq_hz=315.0, gain_db=6.0, q=1.0)
+        # Guitar 2 is flat
+        guitar2.eq[0] = EQBand(band_num=1, type=2, freq_hz=315.0, gain_db=0.0, q=1.0)
+
+        culprit = engine._find_culprit("low_mid", {7: guitar1, 8: guitar2}, 5.0)
+        assert culprit is not None
+        assert culprit.label == "Guitar 1", (
+            f"Guitar 1 with EQ boost should outrank flat Guitar 2, got: {culprit.label}"
+        )
+
+
+# ===========================================================================
+# IMP-021 — SOUNDCHECK MODE
+# ===========================================================================
+
+from core.soundcheck import check_hpf, check_gain_staging, check_compressor_sanity
+
+
+def _make_channel_hpf(num=7, label="Guitar 1", rms_db=-20.0, fader_db=0.0,
+                      muted=False, hpf_on=False, hpf_freq_hz=80.0, hpf_slope=1,
+                      comp_on=False, comp_ratio_index=3, input_gain_db=0.0):
+    return ChannelState(
+        channel_num=num,
+        label=label,
+        fader_db=fader_db,
+        muted=muted,
+        eq=[_make_eq_band(n + 1) for n in range(4)],
+        comp_on=comp_on,
+        comp_threshold_db=-20.0,
+        comp_ratio_index=comp_ratio_index,
+        gate_on=False,
+        gate_threshold_db=-40.0,
+        rms_linear=0.1,
+        rms_db=rms_db,
+        timestamp=time.time(),
+        hpf_on=hpf_on,
+        hpf_freq_hz=hpf_freq_hz,
+        hpf_slope=hpf_slope,
+        input_gain_db=input_gain_db,
+    )
+
+
+class TestSoundcheckModeIMP021:
+    def _make_parser(self):
+        """Replicate main.py's argparse setup including --soundcheck."""
+        parser = argparse.ArgumentParser(description="FOH Assistant")
+        group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument("--show",       action="store_true")
+        group.add_argument("--baseline",   action="store_true")
+        group.add_argument("--soundcheck", action="store_true")
+        group.add_argument("--devices",    action="store_true")
+        group.add_argument("--test-osc",   action="store_true")
+        parser.add_argument("--x32-ip")
+        parser.add_argument("--device-index", type=int, default=None)
+        return parser
+
+    def test_soundcheck_flag_accepted(self):
+        """--soundcheck is accepted as a CLI argument."""
+        parser = self._make_parser()
+        args = parser.parse_args(["--soundcheck"])
+        assert args.soundcheck is True
+
+    def test_soundcheck_mutually_exclusive_with_show(self):
+        """--soundcheck and --show are mutually exclusive."""
+        parser = self._make_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--soundcheck", "--show"])
+
+    # ── check_hpf ─────────────────────────────────────────────────────────────
+
+    def test_check_hpf_none_for_kick(self):
+        """check_hpf() returns None for Kick regardless of HPF state."""
+        kick = _make_channel_hpf(num=1, label="Kick", hpf_on=False)
+        assert check_hpf(kick) is None
+
+    def test_check_hpf_none_for_bass(self):
+        """check_hpf() returns None for Bass regardless of HPF state."""
+        bass = _make_channel_hpf(num=13, label="Bass", hpf_on=False)
+        assert check_hpf(bass) is None
+
+    def test_check_hpf_advisory_for_active_guitar_hpf_off(self):
+        """check_hpf() returns advisory string for active Guitar 1 with hpf_on=False."""
+        guitar = _make_channel_hpf(num=7, label="Guitar 1", hpf_on=False, rms_db=-20.0)
+        result = check_hpf(guitar)
+        assert result is not None
+        assert "HPF OFF" in result
+        assert "Guitar 1" in result
+
+    def test_check_hpf_none_for_guitar_hpf_on_good_slope(self):
+        """check_hpf() returns None for active Guitar 1 with hpf_on=True, hpf_slope=1."""
+        guitar = _make_channel_hpf(num=7, label="Guitar 1", hpf_on=True, hpf_slope=1)
+        assert check_hpf(guitar) is None
+
+    def test_check_hpf_slope_advisory_for_6db_slope(self):
+        """check_hpf() returns slope advisory for active Guitar 1 with hpf_on=True, slope=0."""
+        guitar = _make_channel_hpf(num=7, label="Guitar 1", hpf_on=True, hpf_slope=0,
+                                   hpf_freq_hz=80.0, rms_db=-20.0)
+        result = check_hpf(guitar)
+        assert result is not None
+        assert "SLOPE" in result or "6dB" in result
+
+    def test_check_hpf_none_for_inactive_channel(self):
+        """check_hpf() returns None for inactive channel regardless of HPF state."""
+        guitar = _make_channel_hpf(num=7, label="Guitar 1", hpf_on=False, muted=True)
+        assert check_hpf(guitar) is None
+
+    # ── check_gain_staging ────────────────────────────────────────────────────
+
+    def test_gain_staging_hard_flag_weak_signal_high_fader(self):
+        """check_gain_staging() returns hard flag for rms_db=-35, fader_db=+6.0."""
+        ch = _make_channel_hpf(num=9, label="Lead Vocal", rms_db=-35.0, fader_db=6.0)
+        result = check_gain_staging(ch)
+        assert result is not None
+        assert "GAIN STAGING" in result
+
+    def test_gain_staging_soft_note_ok_signal_high_fader(self):
+        """check_gain_staging() returns soft note for rms_db=-20, fader_db=+6.0."""
+        ch = _make_channel_hpf(num=9, label="Lead Vocal", rms_db=-20.0, fader_db=6.0)
+        result = check_gain_staging(ch)
+        assert result is not None
+        assert "FADER HIGH" in result
+
+    def test_gain_staging_none_normal_state(self):
+        """check_gain_staging() returns None for rms_db=-20, fader_db=+2.0."""
+        ch = _make_channel_hpf(num=9, label="Lead Vocal", rms_db=-20.0, fader_db=2.0)
+        assert check_gain_staging(ch) is None
+
+    def test_gain_staging_none_for_inactive(self):
+        """check_gain_staging() returns None for inactive channel."""
+        ch = _make_channel_hpf(num=9, label="Lead Vocal", rms_db=-35.0, fader_db=6.0, muted=True)
+        assert check_gain_staging(ch) is None
+
+    # ── check_compressor_sanity ───────────────────────────────────────────────
+
+    def test_comp_sanity_none_when_comp_off(self):
+        """check_compressor_sanity() returns None when comp_on=False."""
+        ch = _make_channel_hpf(num=9, label="Lead Vocal", comp_on=False, comp_ratio_index=9)
+        assert check_compressor_sanity(ch) is None
+
+    def test_comp_sanity_advisory_for_vocal_high_ratio(self):
+        """check_compressor_sanity() returns advisory for Lead Vocal with comp_ratio_index=9."""
+        ch = _make_channel_hpf(num=9, label="Lead Vocal", comp_on=True, comp_ratio_index=9)
+        result = check_compressor_sanity(ch)
+        assert result is not None
+        assert "COMP RATIO" in result
+
+    def test_comp_sanity_none_for_kick_high_ratio(self):
+        """check_compressor_sanity() returns None for Kick with comp_ratio_index=9 (percussion)."""
+        ch = _make_channel_hpf(num=1, label="Kick", comp_on=True, comp_ratio_index=9)
+        assert check_compressor_sanity(ch) is None
+
+    # ── Soundcheck mode engine state ──────────────────────────────────────────
+
+    def test_soundcheck_engine_has_no_baseline(self):
+        """Soundcheck mode engine has no baseline (drift checks don't run)."""
+        from core.recommender import RecommendationEngine
+        cfg = _minimal_band_cfg()
+        cfg["thresholds"]["recommendation_cooldown_s"] = 20
+        engine = RecommendationEngine(cfg, _make_glam_profile())
+        # No baseline set — _check_baseline_drift should not run
+        assert engine._baseline is None
+        # Verify drift check is not called by evaluate
+        ch = _make_channel(num=1, label="Kick", fader_db=10.0, rms_db=-20.0)
+        room = _make_room()
+        recs = engine.evaluate(room, {1: ch})
+        drift_recs = [r for r in recs if r.issue == "baseline_drift"]
+        assert len(drift_recs) == 0
+
+    def test_save_baseline_includes_hpf_fields(self, tmp_path):
+        """_save_baseline() includes hpf_on, hpf_freq_hz, hpf_slope, input_gain_db."""
+        import json
+        import core.baseline as _bl_module
+        orig = _bl_module.SHOWS_DIR
+        _bl_module.SHOWS_DIR = tmp_path
+        try:
+            from core.baseline import _save_baseline
+            ch = _make_channel_hpf(num=7, label="Guitar 1",
+                                   hpf_on=True, hpf_freq_hz=90.0, hpf_slope=1,
+                                   input_gain_db=18.0)
+            genre = _make_glam_profile()
+            _save_baseline({7: ch}, genre, "Test Band")
+            saved = list(tmp_path.glob("*.json"))
+            assert len(saved) == 1
+            data = json.loads(saved[0].read_text())
+            ch_data = data["channels"]["7"]
+            assert ch_data["hpf_on"] is True
+            assert "hpf_freq_hz" in ch_data
+            assert "hpf_slope" in ch_data
+            assert "input_gain_db" in ch_data
+        finally:
+            _bl_module.SHOWS_DIR = orig

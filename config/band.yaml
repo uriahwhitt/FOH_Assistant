@@ -75,18 +75,59 @@ channels:
     notes: "Primary instrument — muted when Ken plays acoustic on ch 6"
 
 frequency_fingerprints:
-  Kick:            { primary: [40, 100],   secondary: [2000, 5000] }
-  Drum Rack:       { primary: [100, 400],  secondary: [3000, 8000] }
-  Floor Tom:       { primary: [80, 250],   secondary: [2000, 5000] }
-  Acoustic Guitar: { primary: [100, 6000] }
-  Guitar 1:        { primary: [200, 5000] }
-  Guitar 2:        { primary: [200, 5000] }
-  Lead Vocal:      { primary: [300, 4000], secondary: [1000, 4000] }
-  Drum Vocal:      { primary: [300, 4000] }
-  Bassist Vocal:   { primary: [300, 4000] }
-  Keys Vocal:      { primary: [300, 4000] }
-  Bass:            { primary: [60, 250],   secondary: [500, 1000] }
-  Keys:            { primary: [200, 8000] }
+  Kick:
+    fundamental: [50, 80]
+    body: [80, 150]
+    click: [2000, 4000]
+    mud_zone: [300, 500]
+
+  Drum Rack:
+    primary: [100, 250]
+    attack: [3000, 6000]
+
+  Floor Tom:
+    primary: [60, 120]
+    attack: [3000, 5000]
+
+  Acoustic Guitar:
+    body: [150, 400]
+    sparkle: [2000, 6000]
+    air: [8000, 16000]
+
+  Guitar 1:
+    body: [200, 1000]
+    bite: [2000, 5000]
+
+  Guitar 2:
+    body: [200, 1000]
+    bite: [2000, 5000]
+
+  Lead Vocal:
+    primary: [100, 4000]
+    intelligibility: [1000, 4000]
+    sibilance: [5000, 9000]
+
+  Drum Vocal:
+    primary: [100, 4000]
+    intelligibility: [1000, 4000]
+
+  Bassist Vocal:
+    primary: [100, 4000]
+    intelligibility: [1000, 4000]
+
+  Keys Vocal:
+    primary: [100, 4000]
+    intelligibility: [1000, 4000]
+
+  Bass:
+    primary: [40, 250]
+    definition: [700, 1000]
+    attack: [2000, 4000]
+
+  Keys:
+    bass_register: [60, 250]
+    body: [250, 1000]
+    brilliance: [2000, 5000]
 
 band_overrides:
   global:
@@ -107,7 +148,7 @@ thresholds:
   rate_of_change_rms_window_s: 2
   suppression_duration_s: 60
   recommendation_cooldown_s: 60
-  transition_grace_seconds: 30
+  transition_grace_seconds: 8
   adjustment_detect_fader_db: 0.5
   adjustment_detect_eq_db: 0.5
   adjustment_detect_freq_hz: 10
