@@ -30,6 +30,19 @@ def load_genre_profiles(genres_dir: Path = None) -> dict[str, GenreProfile]:
     return profiles
 
 
+def load_soundcheck(path: Path = None) -> dict | None:
+    """Return the `soundcheck:` block from setlist.yaml, or None if absent."""
+    p = path or CONFIG_DIR / "setlist.yaml"
+    if not p.exists():
+        return None
+    with open(p, "r", encoding="utf-8") as f:
+        raw = yaml.safe_load(f)
+    if not raw:
+        return None
+    sc = raw.get("soundcheck")
+    return _normalize_song(dict(sc)) if sc else None
+
+
 def load_setlist(path: Path = None) -> list[dict] | None:
     p = path or CONFIG_DIR / "setlist.yaml"
     if not p.exists():

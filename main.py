@@ -3,6 +3,7 @@
 Modes:
   python main.py --show          Live show advisory mode
   python main.py --baseline      Soundcheck / baseline mode
+  python main.py --setup         Pre-soundcheck X32 audit (one-shot)
   python main.py --devices       List audio input devices and exit
   python main.py --test-osc      Connect to X32, print channel state, exit
 """
@@ -17,7 +18,8 @@ from typing import Optional
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from core.config_loader import load_band_config, load_genre_profiles, load_setlist, apply_band_overrides
+from core.config_loader import (load_band_config, load_genre_profiles, load_setlist,
+                                  load_soundcheck, apply_band_overrides)
 from core.audio_capture import AudioCapture
 from core.analyzer import Analyzer
 from core.osc_client import X32OSCClient
@@ -273,6 +275,7 @@ def main() -> None:
     group.add_argument("--show",       action="store_true", help="Live show advisory mode")
     group.add_argument("--baseline",   action="store_true", help="Soundcheck / baseline mode")
     group.add_argument("--soundcheck", action="store_true", help="Soundcheck advisory mode")
+    group.add_argument("--setup",      action="store_true", help="Pre-soundcheck X32 audit (one-shot)")
     group.add_argument("--devices",    action="store_true", help="List audio input devices")
     group.add_argument("--test-osc",   action="store_true", help="Test X32 connection")
     parser.add_argument("--x32-ip",      help="Override X32 IP address")
@@ -311,6 +314,11 @@ def main() -> None:
     # --test-osc
     if args.test_osc:
         run_test_osc(band_cfg, profiles, x32_ip, x32_port, active_genre)
+        return
+
+    # --setup — pre-soundcheck audit (no audio capture needed)
+    if args.setup:
+        run_setup_mode(band_cfg, profiles, x32_ip, x32_port, default_genre)
         return
 
     # Initialize audio
@@ -914,6 +922,110 @@ def _soundcheck_confirm(channels: dict, genre, band_cfg: dict,
     print(SEP)
     logger.log_event("SOUNDCHECK_COMPLETE",
                      detail=f"channels={len(channels)} active={active_count}")
+
+
+# ---------------------------------------------------------------------------
+# Setup mode (pre-soundcheck X32 audit, one-shot)
+# ---------------------------------------------------------------------------
+
+def run_setup_mode(band_cfg: dict, profiles: dict, x32_ip: str, x32_port: int,
+                   default_genre: str) -> None:
+    """One-shot board audit before soundcheck. Selects the genre profile from
+    the soundcheck song in setlist.yaml, snapshots the X32, and prints a
+    prioritized list of basic audio-theory fixes the engineer should make
+    before adding any audio. No audio capture, no rolling loop."""
+    from core.setup_check import (run_setup_check, SetupFinding,
+                                   CRITICAL, HIGH_VALUE, ADVISORY)
+
+    # Resolve soundcheck song + genre
+    sc = load_soundcheck()
+    if sc and sc.get("genre_profile") in profiles:
+        genre = profiles[sc["genre_profile"]]
+    else:
+        genre = profiles[default_genre]
+
+    # Connect & snapshot — same pattern as run_test_osc
+    channel_map = {int(k): v if isinstance(v, dict) else {"label": str(v)}
+                   for k, v in band_cfg["channels"].items()}
+    osc = X32OSCClient(x32_ip, x32_port, channel_map)
+    try:
+        info = osc.connect(timeout=5.0)
+        print(f"X32 connected: {info}")
+    except ConnectionError as e:
+        print(f"FAILED: {e}")
+        return
+
+    print("Reading channel state...")
+    channels = osc.snapshot_all_channels()
+    master_db = osc.read_main_fader()
+    osc.close()
+
+    findings = run_setup_check(channels, master_db)
+    print_setup_report(band_cfg, sc, genre, channels, master_db, findings)
+
+
+def print_setup_report(band_cfg: dict, sc: Optional[dict], genre,
+                       channels: dict, master_db: float, findings: list) -> None:
+    from core.setup_check import CRITICAL, HIGH_VALUE, ADVISORY
+
+    print(f"\n{SEP}")
+    print("FOH ASSISTANT — INITIAL SETUP CHECK")
+    print(SEP)
+    print(f"Band:        {band_cfg['band']}")
+    if sc:
+        title  = sc.get("title", "?")
+        artist = sc.get("artist", "")
+        artist_str = f" by {artist}" if artist else ""
+        print(f"Soundcheck:  {title}{artist_str}  [{genre.id}]")
+    else:
+        print(f"Soundcheck:  (no soundcheck song in setlist) [{genre.id}]")
+    print(f"Reference:   docs/FOH_Assistant_System_Audio_Guide.md")
+    print(f"Channels:    {len(channels)} mapped")
+    print(f"Master LR:   {master_db:+.1f} dB")
+
+    # Genre context — informational
+    print()
+    print("----- GENRE CONTEXT -----")
+    print(f"  Target LUFS:     {genre.target_lufs:.0f}")
+    print(f"  Dynamic range:   {genre.dynamic_range}")
+    very_high = [w.label for w in genre.instrument_weights if w.priority == "very_high"]
+    if very_high:
+        print(f"  Mix priority:    {' / '.join(very_high)}  (very_high)")
+    if genre.notes:
+        print(f"  Genre note:      {genre.notes}")
+
+    # Findings, grouped by severity
+    sections = [
+        (CRITICAL,   "CRITICAL — address before opening any mic"),
+        (HIGH_VALUE, "HIGH VALUE — basic audio-theory fixes"),
+        (ADVISORY,   "ADVISORY — recommended polish"),
+    ]
+    counter = 1
+    any_findings = False
+    for severity, header in sections:
+        items = [f for f in findings if f.severity == severity]
+        if not items:
+            continue
+        any_findings = True
+        print()
+        print(f"----- {header} -----")
+        for f in items:
+            label = f.channel if f.channel else "Board"
+            print(f"  [{counter}]  {label} — {f.issue}")
+            print(f"        Action: {f.action}")
+            if f.why:
+                print(f"        Why:    {f.why}")
+            counter += 1
+
+    print()
+    if not any_findings:
+        print("----- ALL CLEAR -----")
+        print("  No setup issues detected. Ready for soundcheck.")
+    else:
+        print(f"----- NEXT -----")
+        print("  Address the items above, then run:")
+        print(f"    python main.py --baseline    # capture soundcheck baseline")
+    print(SEP)
 
 
 # ---------------------------------------------------------------------------

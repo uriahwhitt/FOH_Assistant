@@ -1,54 +1,360 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>X32 Soundcheck Guide — FOH Assistant</title>
 <style>
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --color-bg-page: #f6f7f9;
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f1f3f5;
+  --color-bg-info: #e7f1ff;
+  --color-bg-success: #e6f6ec;
+  --color-bg-warning: #fff5e0;
+  --color-bg-danger: #fde8e8;
+
+  --color-text-primary: #1a1d21;
+  --color-text-secondary: #4a5159;
+  --color-text-tertiary: #7d858e;
+  --color-text-info: #1d6fdc;
+  --color-text-success: #1a7f3c;
+  --color-text-warning: #8a5a00;
+  --color-text-danger: #b3261e;
+
+  --color-border-primary: #d8dde3;
+  --color-border-secondary: #c8ced5;
+  --color-border-tertiary: #e4e8ec;
+  --color-border-info: #1d6fdc;
+  --color-border-success: #1a7f3c;
+  --color-border-warning: #d4a017;
+  --color-border-danger: #b3261e;
+
+  --border-radius-md: 6px;
+  --border-radius-lg: 10px;
+
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-page: #131518;
+    --color-bg-primary: #1c1f23;
+    --color-bg-secondary: #24282d;
+    --color-bg-info: #16304f;
+    --color-bg-success: #163d28;
+    --color-bg-warning: #3d2f10;
+    --color-bg-danger: #3d1d1c;
+
+    --color-text-primary: #e6e8eb;
+    --color-text-secondary: #a8aeb6;
+    --color-text-tertiary: #6f767e;
+    --color-text-info: #6fa8ff;
+    --color-text-success: #6cc78a;
+    --color-text-warning: #e9c069;
+    --color-text-danger: #f08982;
+
+    --color-border-primary: #3a3f45;
+    --color-border-secondary: #4a5057;
+    --color-border-tertiary: #2d3137;
+    --color-border-info: #6fa8ff;
+    --color-border-success: #6cc78a;
+    --color-border-warning: #e9c069;
+    --color-border-danger: #f08982;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(255,255,255,0.04);
+  }
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-sans); font-size: 15px; color: var(--color-text-primary); line-height: 1.6; }
-.guide { padding: 1rem 0; }
-.nav-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.5rem; border-bottom: 0.5px solid var(--color-border-tertiary); padding-bottom: 10px; }
-.tab-btn { padding: 6px 14px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: transparent; color: var(--color-text-secondary); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
-.tab-btn:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
-.tab-btn.active { background: var(--color-background-info); color: var(--color-text-info); border-color: var(--color-border-info); }
+
+html, body {
+  background: var(--color-bg-page);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  color: var(--color-text-primary);
+  line-height: 1.6;
+}
+
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border-tertiary);
+}
+.page-header h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+.page-header p {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+.guide { padding: 0; }
+
+.nav-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  padding-bottom: 12px;
+}
+.tab-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.tab-btn:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-primary);
+}
+.tab-btn:focus-visible {
+  outline: 2px solid var(--color-border-info);
+  outline-offset: 2px;
+}
+.tab-btn.active {
+  background: var(--color-bg-info);
+  color: var(--color-text-info);
+  border-color: var(--color-border-info);
+}
+
 .section { display: none; }
 .section.active { display: block; }
-.section-title { font-size: 16px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 1rem; }
-.card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
-.card-header { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.75rem; }
-.rec-box { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; margin-bottom: 0.75rem; border-left: 2px solid var(--color-border-info); font-family: var(--font-mono); font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; }
-.rec-box .label { font-weight: 500; color: var(--color-text-info); display: block; margin-bottom: 2px; font-family: var(--font-sans); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
-.step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 0.75rem; }
-.step-num { background: var(--color-background-info); color: var(--color-text-info); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; flex-shrink: 0; margin-top: 1px; }
-.step-body { flex: 1; font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; }
-.step-body strong { color: var(--color-text-primary); font-weight: 500; }
-.path { display: inline-flex; align-items: center; gap: 4px; background: var(--color-background-secondary); padding: 2px 8px; border-radius: var(--border-radius-md); font-size: 12px; font-family: var(--font-mono); color: var(--color-text-primary); border: 0.5px solid var(--color-border-tertiary); white-space: nowrap; }
-.arrow { color: var(--color-text-tertiary); font-size: 11px; }
-.tip { background: var(--color-background-warning); border: 0.5px solid var(--color-border-warning); border-radius: var(--border-radius-md); padding: 0.6rem 0.85rem; font-size: 13px; color: var(--color-text-warning); margin-top: 0.75rem; margin-bottom: 0.75rem; }
-.warn { background: var(--color-background-danger); border: 0.5px solid var(--color-border-danger); border-radius: var(--border-radius-md); padding: 0.6rem 0.85rem; font-size: 13px; color: var(--color-text-danger); margin-top: 0.75rem; margin-bottom: 0.75rem; }
-.ok { background: var(--color-background-success); border: 0.5px solid var(--color-border-success); border-radius: var(--border-radius-md); padding: 0.6rem 0.85rem; font-size: 13px; color: var(--color-text-success); margin-top: 0.75rem; margin-bottom: 0.75rem; }
-h3 { font-size: 14px; font-weight: 500; margin: 1.25rem 0 0.5rem; color: var(--color-text-primary); }
-.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-td, th { padding: 7px 10px; border-bottom: 0.5px solid var(--color-border-tertiary); text-align: left; }
-th { color: var(--color-text-secondary); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
-td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--color-text-info); }
-.badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: var(--border-radius-md); font-weight: 500; margin-left: 6px; }
-.badge-eq { background: var(--color-background-info); color: var(--color-text-info); }
-.badge-fader { background: var(--color-background-success); color: var(--color-text-success); }
-.badge-gain { background: var(--color-background-warning); color: var(--color-text-warning); }
-.divider { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 1.25rem 0; }
+
+.section-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 1rem;
+}
+
+.card {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow-card);
+}
+.card-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.85rem;
+}
+
+.rec-box {
+  background: var(--color-bg-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.85rem;
+  border-left: 3px solid var(--color-border-info);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+.rec-box .label {
+  font-weight: 600;
+  color: var(--color-text-info);
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 0.85rem;
+}
+.step:last-child { margin-bottom: 0; }
+.step-num {
+  background: var(--color-bg-info);
+  color: var(--color-text-info);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.step-body {
+  flex: 1;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+.step-body strong {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.path {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-bg-secondary);
+  padding: 2px 8px;
+  border-radius: var(--border-radius-md);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-tertiary);
+  white-space: nowrap;
+}
+
+.tip, .warn, .ok {
+  border-radius: var(--border-radius-md);
+  padding: 0.7rem 0.95rem;
+  font-size: 13px;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.55;
+}
+.tip {
+  background: var(--color-bg-warning);
+  border: 1px solid var(--color-border-warning);
+  color: var(--color-text-warning);
+}
+.warn {
+  background: var(--color-bg-danger);
+  border: 1px solid var(--color-border-danger);
+  color: var(--color-text-danger);
+}
+.ok {
+  background: var(--color-bg-success);
+  border: 1px solid var(--color-border-success);
+  color: var(--color-text-success);
+}
+.tip strong, .warn strong, .ok strong { color: inherit; font-weight: 700; }
+
+h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 1.25rem 0 0.6rem;
+  color: var(--color-text-primary);
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 720px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 4px;
+}
+td, th {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--color-bg-secondary);
+}
+tr:last-child td { border-bottom: none; }
+td:first-child {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-info);
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: var(--border-radius-md);
+  font-weight: 500;
+  margin-left: 6px;
+}
+.badge-eq { background: var(--color-bg-info); color: var(--color-text-info); }
+.badge-fader { background: var(--color-bg-success); color: var(--color-text-success); }
+.badge-gain { background: var(--color-bg-warning); color: var(--color-text-warning); }
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border-tertiary);
+  margin: 1.25rem 0;
+}
+
+.muted {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.75rem;
+}
 </style>
+</head>
+<body>
+<div class="page">
+
+<header class="page-header">
+  <h1>X32 Soundcheck Guide</h1>
+  <p>Mapping FOH Assistant recommendations to the X32-Mix / X32-Q tablet apps</p>
+</header>
 
 <div class="guide">
 <h2 class="sr-only">X32 tablet interface guide for FOH Assistant soundcheck</h2>
 
-<div class="nav-tabs">
-  <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
-  <button class="tab-btn" onclick="showTab('fader')">Fader adjustments</button>
-  <button class="tab-btn" onclick="showTab('eq')">EQ adjustments</button>
-  <button class="tab-btn" onclick="showTab('main')">Main bus / LUFS</button>
-  <button class="tab-btn" onclick="showTab('output')">Reading the output</button>
-  <button class="tab-btn" onclick="showTab('ref')">Quick reference</button>
+<div class="nav-tabs" role="tablist">
+  <button type="button" class="tab-btn active" data-tab="overview" role="tab">Overview</button>
+  <button type="button" class="tab-btn" data-tab="fader" role="tab">Fader adjustments</button>
+  <button type="button" class="tab-btn" data-tab="eq" role="tab">EQ adjustments</button>
+  <button type="button" class="tab-btn" data-tab="main" role="tab">Main bus / LUFS</button>
+  <button type="button" class="tab-btn" data-tab="output" role="tab">Reading the output</button>
+  <button type="button" class="tab-btn" data-tab="ref" role="tab">Quick reference</button>
 </div>
 
-<div id="tab-overview" class="section active">
+<div id="tab-overview" class="section active" role="tabpanel">
   <p class="section-title">How FOH Assistant output maps to the X32 tablet</p>
 
   <div class="card">
@@ -61,26 +367,26 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
       &nbsp;&nbsp;Genre:&nbsp;&nbsp;&nbsp; Glam Metal target -1dB @ low-mid<br>
       &nbsp;&nbsp;Suggest:&nbsp; EQ Band 2 cut to -1.5dB @ 315Hz
     </div>
-    <p style="font-size:13px;color:var(--color-text-secondary);">Each recommendation tells you: <strong>which channel</strong>, <strong>what to touch</strong> (EQ band number or fader), and <strong>how much to move it</strong>. The sections below show exactly where to go on the tablet to make each type of change.</p>
+    <p class="muted">Each recommendation tells you: <strong>which channel</strong>, <strong>what to touch</strong> (EQ band number or fader), and <strong>how much to move it</strong>. The sections below show exactly where to go on the tablet to make each type of change.</p>
   </div>
 
   <div class="card">
     <div class="card-header">Two apps — know which one you're running</div>
     <div class="two-col">
       <div>
-        <p style="font-size:13px;font-weight:500;margin-bottom:4px;">X32-Mix</p>
-        <p style="font-size:12px;color:var(--color-text-secondary);">Full-featured. Shows all channels simultaneously. Best for soundcheck — you can see everything at once and navigate freely between channels.</p>
+        <p style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--color-text-primary);">X32-Mix</p>
+        <p style="font-size:13px;color:var(--color-text-secondary);">Full-featured. Shows all channels simultaneously. Best for soundcheck — you can see everything at once and navigate freely between channels.</p>
       </div>
       <div>
-        <p style="font-size:13px;font-weight:500;margin-bottom:4px;">X32-Q</p>
-        <p style="font-size:12px;color:var(--color-text-secondary);">Simplified single-channel view. Faster to reach specific controls but shows one channel at a time. Good during show when acting on a specific recommendation.</p>
+        <p style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--color-text-primary);">X32-Q</p>
+        <p style="font-size:13px;color:var(--color-text-secondary);">Simplified single-channel view. Faster to reach specific controls but shows one channel at a time. Good during show when acting on a specific recommendation.</p>
       </div>
     </div>
     <div class="tip">The navigation paths in this guide apply to both apps — the steps are the same, the layout differs slightly.</div>
   </div>
 </div>
 
-<div id="tab-fader" class="section">
+<div id="tab-fader" class="section" role="tabpanel">
   <p class="section-title">Making fader level adjustments</p>
 
   <div class="card">
@@ -106,19 +412,19 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
 
   <div class="card">
     <div class="card-header">Main LR fader (for overall LUFS adjustments)</div>
-    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">When the system flags overall loudness ("Room reading 3dB above AOR target LUFS"), it may recommend adjusting the main LR bus, not an individual channel.</p>
+    <p class="muted">When the system flags overall loudness ("Room reading 3dB above AOR target LUFS"), it may recommend adjusting the main LR bus, not an individual channel.</p>
     <div class="step"><div class="step-num">1</div><div class="step-body">In X32-Mix: the <strong>Master fader</strong> is the rightmost large fader on the main screen, labeled "LR" or "Main".</div></div>
     <div class="step"><div class="step-num">2</div><div class="step-body">In X32-Q: tap channel selector → scroll to <strong>LR</strong> or <strong>Main</strong> at the end of the list.</div></div>
     <div class="step"><div class="step-num">3</div><div class="step-body">Adjust by the dB amount recommended. Small moves here affect the whole mix — use 0.5–1dB increments.</div></div>
   </div>
 </div>
 
-<div id="tab-eq" class="section">
+<div id="tab-eq" class="section" role="tabpanel">
   <p class="section-title">Making EQ adjustments</p>
 
   <div class="card">
     <div class="card-header">When the recommendation says: "EQ Band 2 cut to -1.5dB @ 315Hz"</div>
-    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:1rem;">The system will always give you: a band number (1–4), a gain direction (cut = reduce, boost = increase), an amount in dB, and a target frequency in Hz. Here's how to find those controls.</p>
+    <p class="muted">The system will always give you: a band number (1–4), a gain direction (cut = reduce, boost = increase), an amount in dB, and a target frequency in Hz. Here's how to find those controls.</p>
 
     <h3>Step 1 — select the channel</h3>
     <div class="step"><div class="step-num">1</div><div class="step-body">In X32-Mix: <strong>tap the channel strip</strong> for the named channel (Guitar 1, Kick, etc.). The channel detail panel opens on the right side of the screen.</div></div>
@@ -143,7 +449,7 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
 
   <div class="card">
     <div class="card-header">EQ band type — when to check it</div>
-    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">The system reports the current EQ band type it read from the board. Band types on the X32:</p>
+    <p class="muted">The system reports the current EQ band type it read from the board. Band types on the X32:</p>
     <table>
       <tr><th>Label in app</th><th>Type</th><th>When to use</th></tr>
       <tr><td>LCut</td><td>Low cut / high pass</td><td>Remove low rumble below a threshold</td></tr>
@@ -157,7 +463,7 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
 
   <div class="card">
     <div class="card-header">When the system says "add a new EQ point at [frequency]"</div>
-    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">This means all 4 bands are already in use but none are near the problem frequency. Find the least critical existing band and reassign it:</p>
+    <p class="muted">This means all 4 bands are already in use but none are near the problem frequency. Find the least critical existing band and reassign it:</p>
     <div class="step"><div class="step-num">1</div><div class="step-body">In the EQ display, look for a band with a gain near 0dB — it's doing the least work and is the safest to reassign.</div></div>
     <div class="step"><div class="step-num">2</div><div class="step-body">Select that band, drag its frequency handle to the problem frequency the system identified.</div></div>
     <div class="step"><div class="step-num">3</div><div class="step-body">Set the gain to the recommended amount.</div></div>
@@ -165,12 +471,12 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
   </div>
 </div>
 
-<div id="tab-main" class="section">
+<div id="tab-main" class="section" role="tabpanel">
   <p class="section-title">Responding to overall LUFS / loudness recommendations</p>
 
   <div class="card">
     <div class="card-header">Room is too loud — "3dB above [genre] LUFS target"</div>
-    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">The system will name the top contributing channels. Address those first before touching the main fader.</p>
+    <p class="muted">The system will name the top contributing channels. Address those first before touching the main fader.</p>
     <div class="step"><div class="step-num">1</div><div class="step-body">Pull back the <strong>loudest contributing channel</strong> by 1–2dB on its channel fader first. The system names which channels are driving the level.</div></div>
     <div class="step"><div class="step-num">2</div><div class="step-body">If the room is still reading hot after 60 seconds (next recommendation cycle), the system will fire again. At that point consider a small main LR fader pull — 0.5dB at a time.</div></div>
     <div class="step"><div class="step-num">3</div><div class="step-body">Main LR fader location: in X32-Mix it's the rightmost fader on the master section, or look for the large "LR" strip at far right. In X32-Q, select "LR" from the channel picker.</div></div>
@@ -185,7 +491,7 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
 
   <div class="card">
     <div class="card-header">Frequency-band loudness issues (sub-bass heavy, high-end harsh, etc.)</div>
-    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">These are EQ problems, not fader problems. The system identifies the frequency band and the channel most likely responsible.</p>
+    <p class="muted">These are EQ problems, not fader problems. The system identifies the frequency band and the channel most likely responsible.</p>
     <table>
       <tr><th>Frequency band</th><th>Typical Hz range</th><th>Likely culprit</th></tr>
       <tr><td>Sub-bass</td><td>20–80Hz</td><td>Kick, Bass DI</td></tr>
@@ -195,11 +501,11 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
       <tr><td>High-mid</td><td>4kHz–8kHz</td><td>Guitars, cymbals, vocal presence</td></tr>
       <tr><td>High</td><td>8kHz–20kHz</td><td>Overheads, cymbals, vocal air</td></tr>
     </table>
-    <p style="font-size:13px;color:var(--color-text-secondary);margin-top:0.75rem;">Go to the named channel's EQ page and cut or boost the relevant band. See the EQ tab for step-by-step navigation.</p>
+    <p class="muted" style="margin-top:0.75rem;margin-bottom:0;">Go to the named channel's EQ page and cut or boost the relevant band. See the EQ tab for step-by-step navigation.</p>
   </div>
 </div>
 
-<div id="tab-output" class="section">
+<div id="tab-output" class="section" role="tabpanel">
   <p class="section-title">Reading and acting on terminal output</p>
 
   <div class="card">
@@ -225,11 +531,11 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
 
   <div class="card">
     <div class="card-header">Suppressed channels and "no drift" notes</div>
-    <p style="font-size:13px;color:var(--color-text-secondary);">The system suppresses recommendations in some cases — you won't see output for them:</p>
-    <div class="step"><div class="step-num" style="background:var(--color-background-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>60-second cooldown:</strong> after a recommendation fires on a channel, that channel goes quiet for 60 seconds regardless of what happens. Don't expect instant re-confirmation after you adjust.</div></div>
-    <div class="step"><div class="step-num" style="background:var(--color-background-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>Rate-of-change suppression:</strong> if a fader moved more than 3dB in 5 seconds, the system suppresses that channel for 60 seconds — it assumes the move was intentional.</div></div>
-    <div class="step"><div class="step-num" style="background:var(--color-background-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>Sparse mics:</strong> channels marked sparse (Drum Vocal, etc.) are ignored when below their inactive threshold. No recommendation fires on a silent mic.</div></div>
-    <div class="step"><div class="step-num" style="background:var(--color-background-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>Room silence:</strong> all recommendations are suppressed when the room RMS is below -50dBFS. Nothing fires between songs.</div></div>
+    <p class="muted">The system suppresses recommendations in some cases — you won't see output for them:</p>
+    <div class="step"><div class="step-num" style="background:var(--color-bg-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>60-second cooldown:</strong> after a recommendation fires on a channel, that channel goes quiet for 60 seconds regardless of what happens. Don't expect instant re-confirmation after you adjust.</div></div>
+    <div class="step"><div class="step-num" style="background:var(--color-bg-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>Rate-of-change suppression:</strong> if a fader moved more than 3dB in 5 seconds, the system suppresses that channel for 60 seconds — it assumes the move was intentional.</div></div>
+    <div class="step"><div class="step-num" style="background:var(--color-bg-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>Sparse mics:</strong> channels marked sparse (Drum Vocal, etc.) are ignored when below their inactive threshold. No recommendation fires on a silent mic.</div></div>
+    <div class="step"><div class="step-num" style="background:var(--color-bg-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>Room silence:</strong> all recommendations are suppressed when the room RMS is below -50dBFS. Nothing fires between songs.</div></div>
   </div>
 
   <div class="card">
@@ -245,7 +551,7 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
   </div>
 </div>
 
-<div id="tab-ref" class="section">
+<div id="tab-ref" class="section" role="tabpanel">
   <p class="section-title">Quick reference card</p>
 
   <div class="two-col">
@@ -259,7 +565,7 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
         <tr><td>0.25</td><td>-30 dB</td><td></td></tr>
         <tr><td>0.0</td><td>-∞</td><td>Fully off</td></tr>
       </table>
-      <p style="font-size:12px;color:var(--color-text-secondary);margin-top:8px;">The system reports in dB already — the float scale is just for context.</p>
+      <p style="font-size:12px;color:var(--color-text-tertiary);margin-top:10px;">The system reports in dB already — the float scale is just for context.</p>
     </div>
 
     <div class="card">
@@ -315,12 +621,28 @@ td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--co
 </div>
 
 </div>
+</div>
 
 <script>
-function showTab(id) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + id).classList.add('active');
-  event.target.classList.add('active');
-}
+(function () {
+  var tabs = document.querySelectorAll('.tab-btn');
+  var sections = document.querySelectorAll('.section');
+
+  function showTab(id) {
+    sections.forEach(function (s) { s.classList.remove('active'); });
+    tabs.forEach(function (b) { b.classList.remove('active'); });
+    var section = document.getElementById('tab-' + id);
+    if (section) section.classList.add('active');
+    var btn = document.querySelector('.tab-btn[data-tab="' + id + '"]');
+    if (btn) btn.classList.add('active');
+  }
+
+  tabs.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      showTab(btn.getAttribute('data-tab'));
+    });
+  });
+})();
 </script>
+</body>
+</html>
