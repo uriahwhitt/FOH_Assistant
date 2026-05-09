@@ -8,7 +8,7 @@ x32:
   keepalive_interval_s: 8
 
 audio:
-  device_name_match: "CABLE Output (VB-Audio Virtual Cable)"
+  device_name_match: "Wireless Microphone RX"
   preferred_sample_rate: 48000
   channels: 1
   buffer_seconds: 2
@@ -50,21 +50,21 @@ channels:
     usage: sparse
     inactive_threshold_db: -35
     lead_songs: ["Fight for Your Right"]
-    notes: "Open all show — active only for FFYR lead vocal"
+    notes: "Mitch (drummer) — open all show, active only on FFYR (set 2 alternate)"
   11:
     label: "Bassist Vocal"
     type: vocal
     usage: backup_and_lead
     inactive_threshold_db: -35
-    lead_songs: ["Kryptonite"]
-    notes: "Tribute to Brad Arnold — mix with care on Kryptonite"
+    lead_songs: ["Kryptonite", "Sharp Dressed Man", "Fire"]
+    notes: "Eric (bassist) — lead on Kryptonite, Sharp Dressed Man, Fire. Mix with care on Kryptonite."
   12:
     label: "Keys Vocal"
     type: vocal
     usage: backup_and_lead
     inactive_threshold_db: -35
-    lead_songs: []
-    notes: "Confirm which songs have keys player on lead"
+    lead_songs: ["Can't Get Enough", "Gimme Three Steps", "Lay Down Sally", "Lonely Ole Night", "Blister in the Sun"]
+    notes: "Ken (keys/acoustic) — lead on Can't Get Enough, Gimme Three Steps, Lay Down Sally and select alternates"
   13:
     label: "Bass"
     type: instrument

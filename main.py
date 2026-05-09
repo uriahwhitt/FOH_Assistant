@@ -77,6 +77,19 @@ class SetlistNavigator:
     def alternates(self) -> list:
         return [s for s in self._songs if s.get("status") == "alternate"]
 
+    def alternates_for_current_set(self) -> list:
+        """Return alternates whose _set matches the current song's set."""
+        current_set = None
+        if self._current_slot is not None:
+            song = self.song_at_slot(self._current_slot)
+            if song:
+                current_set = song.get("_set", 1)
+        return [
+            s for s in self._songs
+            if s.get("status") == "alternate"
+            and (current_set is None or s.get("_set") == current_set)
+        ]
+
     def _next_unplayed_slot(self, after: Optional[int]) -> Optional[int]:
         slots = self.confirmed_slots()
         if after is None:
@@ -128,6 +141,35 @@ class SetlistNavigator:
         self._songs[idx] = {**alt, "status": "confirmed", "slot": slot}
         return slot, self._songs[idx]
 
+    def insert_after_current(self, song: dict) -> int:
+        """Insert a song immediately after the current slot.
+
+        All confirmed slots after the current position are bumped up by 1
+        so the inserted song plays next without dropping any existing song.
+        """
+        if self._current_slot is None:
+            # Nothing playing yet — append instead
+            return self.add_song(
+                song.get("title", "Untitled"), song.get("genre_profile", "")
+            )[0]
+
+        # Bump every confirmed slot after current up by 1 (highest first to avoid collisions)
+        slots_after = sorted(
+            [s for s in self._slot_map if s > self._current_slot], reverse=True
+        )
+        for old_slot in slots_after:
+            song_idx = self._slot_map.pop(old_slot)
+            new_slot = old_slot + 1
+            self._slot_map[new_slot] = song_idx
+            self._songs[song_idx] = {**self._songs[song_idx], "slot": new_slot}
+
+        # Place inserted song at current + 1
+        new_slot = self._current_slot + 1
+        new_song = {**song, "status": "confirmed", "slot": new_slot}
+        self._songs.append(new_song)
+        self._slot_map[new_slot] = len(self._songs) - 1
+        return new_slot
+
     def add_song(self, title: str, genre: str) -> tuple:
         slots = self.confirmed_slots()
         new_slot = (max(slots) + 1) if slots else 1
@@ -157,35 +199,69 @@ class SetlistNavigator:
                 )
         return flags
 
-    def format_setlist(self) -> str:
-        sep = "━" * 33
-        lines = ["", sep, "SETLIST — Set 1", sep]
+    def format_setlist(self, in_set_break: bool = False) -> str:
+        sep = "-" * 55
+        lines = ["", sep]
+
+        current_set = None
         for slot in self.confirmed_slots():
             song = self.song_at_slot(slot)
             if song is None:
                 continue
+
+            song_set = song.get("_set", 1)
+            if song_set != current_set:
+                if current_set is not None:
+                    lines.append("")
+                    if in_set_break and current_set == 1 and song_set == 2:
+                        lines.append("  ** SET BREAK - break in progress **")
+                    lines.append(sep)
+                lines.append(f"  SET {song_set}  (use slot numbers below with n{{N}})")
+                lines.append(sep)
+                current_set = song_set
+
             title = song.get("title", "?")
             genre = song.get("genre_profile", "")
             genre_str = f"[{genre}]" if genre else ""
+            vocalist = song.get("vocalist", "")
+            vocal_flag = f" *{vocalist}*" if vocalist and vocalist != "Stephanie" else ""
 
-            marker = "▶" if slot == self._current_slot else " "
-            suffix = " ← current" if slot == self._current_slot else ""
+            if slot == self._current_slot:
+                marker = ">>"
+                suffix = "  <-- HERE"
+            else:
+                marker = "  "
+                suffix = ""
 
             if slot in self._played:
-                status_str = "✓ played"
+                status_str = "done"
             elif slot in self._skipped:
-                status_str = "— skipped"
+                status_str = "skip"
             else:
-                status_str = ""
+                status_str = "    "
 
             lines.append(
-                f"{marker} {slot}.  {title:<28} {genre_str:<15} {status_str}{suffix}"
+                f"{marker} {slot:>3}.  {title:<30} {genre_str:<14}"
+                f" [{status_str}]{vocal_flag}{suffix}"
             )
 
+        # Alternates grouped by set
+        alts_by_set: dict = {}
         for alt in self.alternates():
-            title = alt.get("title", "?")
-            replaces = alt.get("replaces", "?")
-            lines.append(f"     [ALTERNATE] {title}  (replaces slot {replaces})")
+            s = alt.get("_set", 1)
+            alts_by_set.setdefault(s, []).append(alt)
+
+        for set_num in sorted(alts_by_set):
+            lines.append("")
+            lines.append(f"  ALTERNATES - Set {set_num}")
+            for alt in alts_by_set[set_num]:
+                title = alt.get("title", "?")
+                artist = alt.get("artist", "")
+                genre = alt.get("genre_profile", "")
+                vocalist = alt.get("vocalist", "")
+                vocal_flag = f" *{vocalist}*" if vocalist and vocalist != "Stephanie" else ""
+                artist_str = f" ({artist})" if artist else ""
+                lines.append(f"       {title}{artist_str} [{genre}]{vocal_flag}")
 
         lines.append(sep)
         return "\n".join(lines)
@@ -321,19 +397,21 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
     ambient_capture = AmbientCapture()
 
     st = SimpleNamespace(
-        song_active  = False,
-        song_idx     = -1,      # slot number of current song (1-based); -1 = none
-        song_counter = 0,       # auto-increment for no-setlist mode
-        active_genre = genre,
-        pending_cmd  = None,    # multi-step command state: None | "ambient_type" | ...
-        pending_args = {},
+        song_active   = False,
+        song_idx      = -1,      # slot number of current song (1-based); -1 = none
+        song_counter  = 0,       # auto-increment for no-setlist mode
+        active_genre  = genre,
+        in_set_break  = False,   # True during the break between sets
+        pending_cmd   = None,    # multi-step command state
+        pending_args  = {},
     )
 
     print("\nShow mode active. Press Ctrl+C to end and generate report.")
     print("  s = board state   g = room analysis   b = baseline drift")
     print("  n = next song     e = end song early   p = print setlist")
     print("  a = ambient capture   skip = skip song   sw{N} = swap slot N")
-    print("  n{N} = jump to slot N   n-1 = go back   add = add song\n")
+    print("  n{N} = jump to slot N   n-1 = go back   add = add song")
+    print("  ins = insert alternate as next song   break = set break mode\n")
 
     kb_queue: list = []
     def kb_listener():
@@ -419,6 +497,9 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
         st.song_active = True
 
     def _handle_next() -> None:
+        if st.in_set_break:
+            st.in_set_break = False
+            logger.log_event("SET_BREAK_END", detail="set break ended — starting next set")
         prev_genre = st.active_genre
         _end_current_song(silent=True)
         if navigator:
@@ -471,11 +552,12 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
             analysis = analyzer.analyze(audio_buf)
             logger.record_lufs(analysis.lufs)
 
-            recs = engine.evaluate(analysis, current_channels)
-            for rec in recs:
-                logger.log_recommendation(rec)
-                print(rec.format_terminal())
-                print()
+            if not st.in_set_break:
+                recs = engine.evaluate(analysis, current_channels)
+                for rec in recs:
+                    logger.log_recommendation(rec)
+                    print(rec.format_terminal())
+                    print()
 
             while kb_queue:
                 cmd = kb_queue.pop(0)
@@ -526,6 +608,31 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                                          detail=f"slot={slot} title={title} genre={genre_id} status=unplanned")
                     continue
 
+                if st.pending_cmd == "ins_select":
+                    alts = st.pending_args.get("alternates", [])
+                    st.pending_cmd = None
+                    st.pending_args = {}
+                    try:
+                        pick = int(cmd.strip())
+                        if 1 <= pick <= len(alts):
+                            chosen = alts[pick - 1]
+                            new_slot = navigator.insert_after_current(chosen)
+                            ts = time.strftime("%H:%M:%S")
+                            title = chosen.get("title", "?")
+                            genre_id = chosen.get("genre_profile", "")
+                            print(f"\n[{ts}] Inserted: {title} [{genre_id}]"
+                                  f" — plays next (slot {new_slot})")
+                            logger.log_event(
+                                "SETLIST_INSERT",
+                                detail=f"slot={new_slot} title={title} "
+                                       f"genre={genre_id} nav_type=insert",
+                            )
+                        else:
+                            print("\nInvalid selection — no song inserted.")
+                    except ValueError:
+                        print("\nInvalid selection — no song inserted.")
+                    continue
+
                 # ── Normal commands ───────────────────────────────────────
 
                 if cmd == "s":
@@ -563,9 +670,21 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
 
                 elif cmd == "p":
                     if navigator:
-                        print(navigator.format_setlist())
+                        print(navigator.format_setlist(in_set_break=st.in_set_break))
                     else:
                         print("\nNo setlist loaded.")
+
+                elif cmd == "break":
+                    _end_current_song(silent=True)
+                    st.in_set_break = True
+                    after = navigator._current_slot if navigator else "?"
+                    ts = time.strftime("%H:%M:%S")
+                    print(f"\n[{ts}] SET BREAK")
+                    print("  Recommendations paused. Board still monitored.")
+                    print("  Run 'a' for crowd ambient capture.")
+                    print("  Press 'n' when ready to start the next set.\n")
+                    logger.log_event("SET_BREAK_START",
+                                     detail=f"after_slot={after}")
 
                 elif cmd == "a":
                     st.pending_cmd = "ambient_type"
@@ -591,6 +710,23 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                         print("\nSong name:")
                     else:
                         print("\nNo setlist loaded — cannot add.")
+
+                elif cmd == "ins":
+                    if not navigator:
+                        print("\nNo setlist loaded.")
+                    else:
+                        alts = navigator.alternates_for_current_set()
+                        if not alts:
+                            print("\nNo alternates available for current set.")
+                        else:
+                            print("\nAlternates:")
+                            for i, alt in enumerate(alts, 1):
+                                vocalist = alt.get("vocalist", "")
+                                flag = f"  *{vocalist}*" if vocalist and vocalist != "Stephanie" else ""
+                                print(f"  {i}.  {alt.get('title', '?')}{flag}")
+                            print("Number:")
+                            st.pending_cmd = "ins_select"
+                            st.pending_args["alternates"] = alts
 
                 elif cmd.startswith("sw") and len(cmd) > 2:
                     try:

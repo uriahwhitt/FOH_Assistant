@@ -61,9 +61,9 @@ class AudioCapture:
         lines = []
         for i, dev in enumerate(devices):
             if dev["max_input_channels"] > 0:
-                marker = "  ← use this" if self._match.lower() in dev["name"].lower() else ""
+                marker = "  <-- use this" if self._match.lower() in dev["name"].lower() else ""
                 lines.append(
-                    f"  [{i}] {dev['name']:<40} — {int(dev['default_samplerate'])}Hz, "
+                    f"  [{i}] {dev['name']:<40} -- {int(dev['default_samplerate'])}Hz, "
                     f"{dev['max_input_channels']}ch{marker}"
                 )
         return "Available audio input devices:\n" + "\n".join(lines)

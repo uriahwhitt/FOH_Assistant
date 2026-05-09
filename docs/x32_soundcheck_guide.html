@@ -1,0 +1,326 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); font-size: 15px; color: var(--color-text-primary); line-height: 1.6; }
+.guide { padding: 1rem 0; }
+.nav-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.5rem; border-bottom: 0.5px solid var(--color-border-tertiary); padding-bottom: 10px; }
+.tab-btn { padding: 6px 14px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: transparent; color: var(--color-text-secondary); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+.tab-btn:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+.tab-btn.active { background: var(--color-background-info); color: var(--color-text-info); border-color: var(--color-border-info); }
+.section { display: none; }
+.section.active { display: block; }
+.section-title { font-size: 16px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 1rem; }
+.card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.card-header { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.75rem; }
+.rec-box { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; margin-bottom: 0.75rem; border-left: 2px solid var(--color-border-info); font-family: var(--font-mono); font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; }
+.rec-box .label { font-weight: 500; color: var(--color-text-info); display: block; margin-bottom: 2px; font-family: var(--font-sans); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+.step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 0.75rem; }
+.step-num { background: var(--color-background-info); color: var(--color-text-info); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; flex-shrink: 0; margin-top: 1px; }
+.step-body { flex: 1; font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; }
+.step-body strong { color: var(--color-text-primary); font-weight: 500; }
+.path { display: inline-flex; align-items: center; gap: 4px; background: var(--color-background-secondary); padding: 2px 8px; border-radius: var(--border-radius-md); font-size: 12px; font-family: var(--font-mono); color: var(--color-text-primary); border: 0.5px solid var(--color-border-tertiary); white-space: nowrap; }
+.arrow { color: var(--color-text-tertiary); font-size: 11px; }
+.tip { background: var(--color-background-warning); border: 0.5px solid var(--color-border-warning); border-radius: var(--border-radius-md); padding: 0.6rem 0.85rem; font-size: 13px; color: var(--color-text-warning); margin-top: 0.75rem; margin-bottom: 0.75rem; }
+.warn { background: var(--color-background-danger); border: 0.5px solid var(--color-border-danger); border-radius: var(--border-radius-md); padding: 0.6rem 0.85rem; font-size: 13px; color: var(--color-text-danger); margin-top: 0.75rem; margin-bottom: 0.75rem; }
+.ok { background: var(--color-background-success); border: 0.5px solid var(--color-border-success); border-radius: var(--border-radius-md); padding: 0.6rem 0.85rem; font-size: 13px; color: var(--color-text-success); margin-top: 0.75rem; margin-bottom: 0.75rem; }
+h3 { font-size: 14px; font-weight: 500; margin: 1.25rem 0 0.5rem; color: var(--color-text-primary); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+td, th { padding: 7px 10px; border-bottom: 0.5px solid var(--color-border-tertiary); text-align: left; }
+th { color: var(--color-text-secondary); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--color-text-info); }
+.badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: var(--border-radius-md); font-weight: 500; margin-left: 6px; }
+.badge-eq { background: var(--color-background-info); color: var(--color-text-info); }
+.badge-fader { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-gain { background: var(--color-background-warning); color: var(--color-text-warning); }
+.divider { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 1.25rem 0; }
+</style>
+
+<div class="guide">
+<h2 class="sr-only">X32 tablet interface guide for FOH Assistant soundcheck</h2>
+
+<div class="nav-tabs">
+  <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
+  <button class="tab-btn" onclick="showTab('fader')">Fader adjustments</button>
+  <button class="tab-btn" onclick="showTab('eq')">EQ adjustments</button>
+  <button class="tab-btn" onclick="showTab('main')">Main bus / LUFS</button>
+  <button class="tab-btn" onclick="showTab('output')">Reading the output</button>
+  <button class="tab-btn" onclick="showTab('ref')">Quick reference</button>
+</div>
+
+<div id="tab-overview" class="section active">
+  <p class="section-title">How FOH Assistant output maps to the X32 tablet</p>
+
+  <div class="card">
+    <div class="card-header">Sample recommendation — what you'll see in the terminal</div>
+    <div class="rec-box">
+      <span class="label">Example output</span>
+      [21:34:12] Guitar 1 — low-mid buildup around 315Hz detected<br>
+      &nbsp;&nbsp;Current:&nbsp; EQ Band 2 +1.5dB @ 315Hz | Fader -2.0dB<br>
+      &nbsp;&nbsp;Baseline: EQ Band 2 +1.5dB @ 315Hz | Fader -2.0dB (no drift)<br>
+      &nbsp;&nbsp;Genre:&nbsp;&nbsp;&nbsp; Glam Metal target -1dB @ low-mid<br>
+      &nbsp;&nbsp;Suggest:&nbsp; EQ Band 2 cut to -1.5dB @ 315Hz
+    </div>
+    <p style="font-size:13px;color:var(--color-text-secondary);">Each recommendation tells you: <strong>which channel</strong>, <strong>what to touch</strong> (EQ band number or fader), and <strong>how much to move it</strong>. The sections below show exactly where to go on the tablet to make each type of change.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Two apps — know which one you're running</div>
+    <div class="two-col">
+      <div>
+        <p style="font-size:13px;font-weight:500;margin-bottom:4px;">X32-Mix</p>
+        <p style="font-size:12px;color:var(--color-text-secondary);">Full-featured. Shows all channels simultaneously. Best for soundcheck — you can see everything at once and navigate freely between channels.</p>
+      </div>
+      <div>
+        <p style="font-size:13px;font-weight:500;margin-bottom:4px;">X32-Q</p>
+        <p style="font-size:12px;color:var(--color-text-secondary);">Simplified single-channel view. Faster to reach specific controls but shows one channel at a time. Good during show when acting on a specific recommendation.</p>
+      </div>
+    </div>
+    <div class="tip">The navigation paths in this guide apply to both apps — the steps are the same, the layout differs slightly.</div>
+  </div>
+</div>
+
+<div id="tab-fader" class="section">
+  <p class="section-title">Making fader level adjustments</p>
+
+  <div class="card">
+    <div class="card-header">When the recommendation says: "Pull fader to -1dB" or "Suggest: Fader +2dB"</div>
+
+    <h3>In X32-Mix (recommended for soundcheck)</h3>
+    <div class="step"><div class="step-num">1</div><div class="step-body">The main screen shows all channels as vertical strips. Find the channel by its label (Guitar 1, Kick, Bass DI, etc.) at the bottom of each strip.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Tap the channel strip</strong> to select it — the strip highlights and the channel name appears in the detail panel.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body">The fader is the vertical slider in the channel strip. <strong>Drag it up or down</strong> to move level. The numeric dB value displays at the top of the fader.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-body">Target the dB value the system recommended. Unity (0dB) is at approximately 75% of the fader travel — the fader has a non-linear taper, so the top 25% covers only +10dB.</div></div>
+
+    <hr class="divider">
+
+    <h3>In X32-Q</h3>
+    <div class="step"><div class="step-num">1</div><div class="step-body">Tap the <strong>channel selector</strong> at the top of the screen (shows current channel name/number). A picker appears.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body">Scroll to the channel the system named and tap it.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body">The large fader on screen controls that channel's main level. Drag to the recommended dB.</div></div>
+
+    <div class="tip">Fader scale reminder: Unity (0dB) is NOT at the top. The X32 fader runs from -∞ at bottom to +10dB at top, with 0dB (unity) at roughly 75% of travel. The system's dB values already account for this — just match the number shown.</div>
+
+    <div class="warn">If the system says "fader drift +4dB on Guitar 1" — that means the guitarist or someone else already pushed it up. Confirm it's intentional before pulling it back.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Main LR fader (for overall LUFS adjustments)</div>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">When the system flags overall loudness ("Room reading 3dB above AOR target LUFS"), it may recommend adjusting the main LR bus, not an individual channel.</p>
+    <div class="step"><div class="step-num">1</div><div class="step-body">In X32-Mix: the <strong>Master fader</strong> is the rightmost large fader on the main screen, labeled "LR" or "Main".</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body">In X32-Q: tap channel selector → scroll to <strong>LR</strong> or <strong>Main</strong> at the end of the list.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body">Adjust by the dB amount recommended. Small moves here affect the whole mix — use 0.5–1dB increments.</div></div>
+  </div>
+</div>
+
+<div id="tab-eq" class="section">
+  <p class="section-title">Making EQ adjustments</p>
+
+  <div class="card">
+    <div class="card-header">When the recommendation says: "EQ Band 2 cut to -1.5dB @ 315Hz"</div>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:1rem;">The system will always give you: a band number (1–4), a gain direction (cut = reduce, boost = increase), an amount in dB, and a target frequency in Hz. Here's how to find those controls.</p>
+
+    <h3>Step 1 — select the channel</h3>
+    <div class="step"><div class="step-num">1</div><div class="step-body">In X32-Mix: <strong>tap the channel strip</strong> for the named channel (Guitar 1, Kick, etc.). The channel detail panel opens on the right side of the screen.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body">In X32-Q: use the channel selector at the top to navigate to the named channel.</div></div>
+
+    <h3>Step 2 — open the EQ page</h3>
+    <div class="step"><div class="step-num">3</div><div class="step-body">Look for the <strong>EQ tab</strong> or <strong>EQ button</strong> in the channel detail area. In X32-Mix it appears as "EQ" in the tab row at the top of the detail panel. In X32-Q it's a button in the bottom navigation row.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-body">Tap it — the 4-band parametric EQ display opens. You'll see the frequency curve graphic and four band controls below it.</div></div>
+
+    <h3>Step 3 — find the band the system identified</h3>
+    <div class="step"><div class="step-num">5</div><div class="step-body">Bands are numbered <strong>1 through 4</strong> from left (low) to right (high) in the EQ display. Band 1 = low end, Band 4 = high end. The system tells you exactly which band to touch.</div></div>
+    <div class="step"><div class="step-num">6</div><div class="step-body"><strong>Tap the band</strong> in the frequency display graph — a dot or handle appears on the curve. Or tap the band number selector below the graph.</div></div>
+
+    <h3>Step 4 — verify the frequency, then adjust gain</h3>
+    <div class="step"><div class="step-num">7</div><div class="step-body">With the band selected, you'll see three controls: <strong>Freq</strong> (Hz), <strong>Gain</strong> (dB), <strong>Q</strong> (bandwidth). Confirm the frequency is near what the system reported — if it's not close, drag the band handle left/right in the graph to move it to the recommended frequency.</div></div>
+    <div class="step"><div class="step-num">8</div><div class="step-body">Adjust the <strong>Gain</strong> knob or slider to the recommended dB value. Negative = cut (pull down), positive = boost (push up).</div></div>
+
+    <div class="tip">Don't touch the Q (bandwidth) unless the system specifically recommends a Q change. Start with gain-only adjustments — that's what Phase 1 recommendations target.</div>
+
+    <div class="ok">After adjusting, type <strong>recheck</strong> in the terminal (soundcheck mode) to re-assess the channel. In show mode, the system will re-evaluate automatically on the next 1-second cycle.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">EQ band type — when to check it</div>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">The system reports the current EQ band type it read from the board. Band types on the X32:</p>
+    <table>
+      <tr><th>Label in app</th><th>Type</th><th>When to use</th></tr>
+      <tr><td>LCut</td><td>Low cut / high pass</td><td>Remove low rumble below a threshold</td></tr>
+      <tr><td>LShv</td><td>Low shelf</td><td>Broad boost/cut of low frequencies</td></tr>
+      <tr><td>PEQ</td><td>Parametric</td><td>Targeted boost/cut at a specific frequency — most common</td></tr>
+      <tr><td>HShv</td><td>High shelf</td><td>Broad boost/cut of high frequencies</td></tr>
+      <tr><td>HCut</td><td>High cut / low pass</td><td>Remove high-frequency hash above a threshold</td></tr>
+    </table>
+    <div class="tip">For mid-frequency adjustments (315Hz, 1kHz, 2kHz range), the band should be set to <strong>PEQ</strong> (parametric). If it's set to a shelf or cut type and the system is targeting a mid frequency, change the type to PEQ first, then set the gain.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">When the system says "add a new EQ point at [frequency]"</div>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">This means all 4 bands are already in use but none are near the problem frequency. Find the least critical existing band and reassign it:</p>
+    <div class="step"><div class="step-num">1</div><div class="step-body">In the EQ display, look for a band with a gain near 0dB — it's doing the least work and is the safest to reassign.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body">Select that band, drag its frequency handle to the problem frequency the system identified.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body">Set the gain to the recommended amount.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-body">Set the type to PEQ if it isn't already.</div></div>
+  </div>
+</div>
+
+<div id="tab-main" class="section">
+  <p class="section-title">Responding to overall LUFS / loudness recommendations</p>
+
+  <div class="card">
+    <div class="card-header">Room is too loud — "3dB above [genre] LUFS target"</div>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">The system will name the top contributing channels. Address those first before touching the main fader.</p>
+    <div class="step"><div class="step-num">1</div><div class="step-body">Pull back the <strong>loudest contributing channel</strong> by 1–2dB on its channel fader first. The system names which channels are driving the level.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body">If the room is still reading hot after 60 seconds (next recommendation cycle), the system will fire again. At that point consider a small main LR fader pull — 0.5dB at a time.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body">Main LR fader location: in X32-Mix it's the rightmost fader on the master section, or look for the large "LR" strip at far right. In X32-Q, select "LR" from the channel picker.</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Room is too quiet — "2dB below [genre] LUFS target"</div>
+    <div class="step"><div class="step-num">1</div><div class="step-body">Push up the <strong>top contributing channel(s)</strong> named in the recommendation, 1dB at a time.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body">Or nudge the main LR fader up 0.5dB.</div></div>
+    <div class="warn">Be conservative pushing level up — the system uses a 60-second cooldown between recommendations on the same channel, so it won't immediately confirm. Give your ears 15–20 seconds to verify before pushing more.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Frequency-band loudness issues (sub-bass heavy, high-end harsh, etc.)</div>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">These are EQ problems, not fader problems. The system identifies the frequency band and the channel most likely responsible.</p>
+    <table>
+      <tr><th>Frequency band</th><th>Typical Hz range</th><th>Likely culprit</th></tr>
+      <tr><td>Sub-bass</td><td>20–80Hz</td><td>Kick, Bass DI</td></tr>
+      <tr><td>Bass</td><td>80–250Hz</td><td>Kick, Bass, Guitar cabs</td></tr>
+      <tr><td>Low-mid</td><td>250–1kHz</td><td>Guitars, vocals, snare body</td></tr>
+      <tr><td>Mid</td><td>1kHz–4kHz</td><td>Vocals, guitars, snare attack</td></tr>
+      <tr><td>High-mid</td><td>4kHz–8kHz</td><td>Guitars, cymbals, vocal presence</td></tr>
+      <tr><td>High</td><td>8kHz–20kHz</td><td>Overheads, cymbals, vocal air</td></tr>
+    </table>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-top:0.75rem;">Go to the named channel's EQ page and cut or boost the relevant band. See the EQ tab for step-by-step navigation.</p>
+  </div>
+</div>
+
+<div id="tab-output" class="section">
+  <p class="section-title">Reading and acting on terminal output</p>
+
+  <div class="card">
+    <div class="card-header">Anatomy of a recommendation</div>
+    <div class="rec-box">
+      <span class="label">Full example output</span>
+      [21:34:12] Guitar 1 — low-mid buildup around 315Hz detected<br>
+      &nbsp;&nbsp;Current:&nbsp; EQ Band 2 +1.5dB @ 315Hz | Fader -2.0dB<br>
+      &nbsp;&nbsp;Baseline: EQ Band 2 +1.5dB @ 315Hz | Fader -2.0dB (no drift)<br>
+      &nbsp;&nbsp;Genre:&nbsp;&nbsp;&nbsp; Glam Metal target -1dB @ low-mid<br>
+      &nbsp;&nbsp;Suggest:&nbsp; EQ Band 2 cut to -1.5dB @ 315Hz
+    </div>
+    <table>
+      <tr><th>Line</th><th>Means</th><th>What to do</th></tr>
+      <tr><td>Channel name</td><td>Which channel has the problem</td><td>Navigate to that channel on tablet</td></tr>
+      <tr><td>Current EQ Band #</td><td>Band number already set at that frequency</td><td>Select that band in EQ page</td></tr>
+      <tr><td>Current Fader</td><td>What the board currently reads</td><td>Sanity check — confirm it matches</td></tr>
+      <tr><td>Baseline</td><td>Where it was at soundcheck</td><td>Shows if it drifted or was always this way</td></tr>
+      <tr><td>Genre target</td><td>What the profile expects for this frequency region</td><td>Context only — don't need to act on this line</td></tr>
+      <tr><td>Suggest</td><td>The specific change to make</td><td>This is your action — execute this on the tablet</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Suppressed channels and "no drift" notes</div>
+    <p style="font-size:13px;color:var(--color-text-secondary);">The system suppresses recommendations in some cases — you won't see output for them:</p>
+    <div class="step"><div class="step-num" style="background:var(--color-background-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>60-second cooldown:</strong> after a recommendation fires on a channel, that channel goes quiet for 60 seconds regardless of what happens. Don't expect instant re-confirmation after you adjust.</div></div>
+    <div class="step"><div class="step-num" style="background:var(--color-background-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>Rate-of-change suppression:</strong> if a fader moved more than 3dB in 5 seconds, the system suppresses that channel for 60 seconds — it assumes the move was intentional.</div></div>
+    <div class="step"><div class="step-num" style="background:var(--color-background-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>Sparse mics:</strong> channels marked sparse (Drum Vocal, etc.) are ignored when below their inactive threshold. No recommendation fires on a silent mic.</div></div>
+    <div class="step"><div class="step-num" style="background:var(--color-background-warning);color:var(--color-text-warning);">!</div><div class="step-body"><strong>Room silence:</strong> all recommendations are suppressed when the room RMS is below -50dBFS. Nothing fires between songs.</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Terminal keyboard commands during show</div>
+    <table>
+      <tr><th>Key</th><th>Action</th></tr>
+      <tr><td>s + Enter</td><td>Print current board state snapshot (all channel faders and EQ)</td></tr>
+      <tr><td>g + Enter</td><td>Print current room analysis (LUFS + frequency bands)</td></tr>
+      <tr><td>b + Enter</td><td>Print baseline drift summary for all channels</td></tr>
+      <tr><td>n + Enter</td><td>Advance to next song in setlist, load new genre profile</td></tr>
+      <tr><td>Ctrl+C</td><td>Graceful shutdown — generates post-show report</td></tr>
+    </table>
+  </div>
+</div>
+
+<div id="tab-ref" class="section">
+  <p class="section-title">Quick reference card</p>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-header">Fader dB reference</div>
+      <table>
+        <tr><th>OSC float</th><th>dB value</th><th>Notes</th></tr>
+        <tr><td>1.0</td><td>+10 dB</td><td>Max</td></tr>
+        <tr><td>0.75</td><td>0 dB</td><td>Unity</td></tr>
+        <tr><td>0.50</td><td>-10 dB</td><td></td></tr>
+        <tr><td>0.25</td><td>-30 dB</td><td></td></tr>
+        <tr><td>0.0</td><td>-∞</td><td>Fully off</td></tr>
+      </table>
+      <p style="font-size:12px;color:var(--color-text-secondary);margin-top:8px;">The system reports in dB already — the float scale is just for context.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">EQ frequency landmarks</div>
+      <table>
+        <tr><th>Frequency</th><th>Character</th></tr>
+        <tr><td>80Hz</td><td>Kick/bass weight</td></tr>
+        <tr><td>200Hz</td><td>Mud zone</td></tr>
+        <tr><td>315Hz</td><td>Low-mid warmth/mud</td></tr>
+        <tr><td>500Hz</td><td>Guitar body / nasal</td></tr>
+        <tr><td>1kHz</td><td>Presence / honk</td></tr>
+        <tr><td>2kHz</td><td>Attack / edge</td></tr>
+        <tr><td>4kHz</td><td>Bite / harshness</td></tr>
+        <tr><td>8kHz</td><td>Air / sibilance</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Soundcheck mode flow</div>
+    <div class="step"><div class="step-num">1</div><div class="step-body">Run <span class="path">python main.py --baseline</span> — system enters soundcheck mode</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body">Type channel name or number at the prompt (e.g. <strong>kick</strong>, <strong>guitar1</strong>)</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body">System prints current state + recommendation</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-body">Make adjustment on tablet</div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-body">Type <strong>recheck</strong> to re-assess — system re-reads board and re-analyzes</div></div>
+    <div class="step"><div class="step-num">6</div><div class="step-body">Repeat for each channel, then type <strong>band</strong> for full combined mix assessment</div></div>
+    <div class="step"><div class="step-num">7</div><div class="step-body">Type <strong>confirm</strong> to lock baseline and save snapshot</div></div>
+
+    <div class="ok">Once baseline is locked, the system enters show mode automatically (or run <span class="path">python main.py --show</span> separately).</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Band channel map (confirm at first test show)</div>
+    <table>
+      <tr><th>Ch</th><th>Label</th><th>Type</th><th>Notes</th></tr>
+      <tr><td>1</td><td>Kick</td><td>Instrument</td><td></td></tr>
+      <tr><td>2</td><td>Snare</td><td>Instrument</td><td></td></tr>
+      <tr><td>3</td><td>Hi-Hat</td><td>Instrument</td><td></td></tr>
+      <tr><td>4</td><td>Overhead L</td><td>Instrument</td><td></td></tr>
+      <tr><td>5</td><td>Overhead R</td><td>Instrument</td><td></td></tr>
+      <tr><td>6</td><td>Drum Vocal</td><td>Vocal — sparse</td><td>Active only on FFYR</td></tr>
+      <tr><td>7</td><td>Bass DI</td><td>Instrument</td><td></td></tr>
+      <tr><td>8</td><td>Bassist Vocal</td><td>Vocal</td><td>Lead on Kryptonite</td></tr>
+      <tr><td>9</td><td>Guitar 1</td><td>Instrument</td><td>Shared lead/rhythm</td></tr>
+      <tr><td>10</td><td>Guitar 2</td><td>Instrument</td><td>Shared lead/rhythm</td></tr>
+      <tr><td>11</td><td>Guitar 3 / Keys</td><td>Instrument</td><td>Paired — paired channel guard active</td></tr>
+      <tr><td>12</td><td>Lead Vocal</td><td>Vocal</td><td></td></tr>
+      <tr><td>13</td><td>Backing Vocal 1</td><td>Vocal</td><td></td></tr>
+      <tr><td>14</td><td>Backing Vocal 2</td><td>Vocal</td><td></td></tr>
+    </table>
+    <div class="warn">Channel numbers are placeholders — verify against actual X32 patch at the first test show using <span class="path">python main.py --test-osc</span></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>

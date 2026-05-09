@@ -36,7 +36,47 @@ def load_setlist(path: Path = None) -> list[dict] | None:
         return None
     with open(p, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
-    return raw.get("songs", []) if raw else []
+    if not raw:
+        return []
+
+    # Old flat format
+    if "songs" in raw:
+        return raw["songs"]
+
+    # Multi-set format: set_1, set_2, alternates_set_1, alternates_set_2
+    songs = []
+    offset = 0
+    for set_key in ["set_1", "set_2"]:
+        set_num = int(set_key.split("_")[1])
+        set_songs = raw.get(set_key) or []
+        set_max_slot = 0
+        for song in set_songs:
+            entry = _normalize_song(dict(song))
+            entry["_set"] = set_num
+            if entry.get("status", "confirmed") == "confirmed":
+                original_slot = int(entry.get("slot", 1))
+                entry["slot"] = original_slot + offset
+                set_max_slot = max(set_max_slot, original_slot)
+            songs.append(entry)
+        offset += set_max_slot
+
+    for alt_key in ["alternates_set_1", "alternates_set_2"]:
+        set_num = int(alt_key.split("_set_")[1])
+        for song in (raw.get(alt_key) or []):
+            entry = _normalize_song(dict(song))
+            entry["_set"] = set_num
+            songs.append(entry)
+
+    return songs
+
+
+def _normalize_song(song: dict) -> dict:
+    """Translate source field names (song/genre) to internal format (title/genre_profile)."""
+    if "song" in song and "title" not in song:
+        song["title"] = song.pop("song")
+    if "genre" in song and "genre_profile" not in song:
+        song["genre_profile"] = song.pop("genre")
+    return song
 
 
 def apply_band_overrides(profiles: dict[str, GenreProfile], band_cfg: dict) -> dict[str, GenreProfile]:
