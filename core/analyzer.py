@@ -27,8 +27,12 @@ class Analyzer:
         self._prev_bands: dict[str, float] = {b: -90.0 for b in BAND_NAMES}
         self._prev_lufs: float = -70.0
 
-    def analyze(self, audio: np.ndarray) -> RoomAnalysis:
-        """Analyze a mono float32 audio buffer and return RoomAnalysis."""
+    def analyze(self, audio: np.ndarray, ambient=None) -> RoomAnalysis:
+        """Analyze a mono float32 audio buffer and return RoomAnalysis.
+
+        When ambient (an AmbientBaseline) is provided, band readings are corrected
+        by subtracting the ambient level for bands where SNR > AMBIENT_SNR_THRESHOLD_DB.
+        """
         now = time.time()
 
         if audio is None or len(audio) < self._sr // 10:
@@ -37,6 +41,16 @@ class Analyzer:
         lufs = self._integrated_lufs(audio)
         rms_db = self._short_term_rms(audio)
         bands = self._fft_bands(audio)
+
+        if ambient is not None:
+            from core.ambient import AMBIENT_SNR_THRESHOLD_DB
+            corrected = {}
+            for band, level in bands.items():
+                offset = ambient.bands.get(band, -90.0)
+                corrected[band] = (level - offset
+                                   if level - offset > AMBIENT_SNR_THRESHOLD_DB
+                                   else level)
+            bands = corrected
 
         band_delta = {b: bands[b] - self._prev_bands[b] for b in BAND_NAMES}
         lufs_delta = lufs - self._prev_lufs

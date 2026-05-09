@@ -12,6 +12,7 @@ import sys
 import time
 import threading
 import select
+from typing import Optional
 
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -26,6 +27,168 @@ from core.logger import SessionLogger
 
 VERSION = "0.1"
 SEP = "=" * 47
+
+# Fader targets implied by genre instrument weight priority
+_PRIORITY_FADER_TARGET = {
+    "very_high": -3.0, "high": -6.0, "medium": -10.0, "low": -15.0, "none": -90.0,
+}
+
+
+# ---------------------------------------------------------------------------
+# Setlist navigator
+# ---------------------------------------------------------------------------
+
+class SetlistNavigator:
+    """Slot-based setlist navigation with alternate, skip, and swap support."""
+
+    def __init__(self, songs: list):
+        self._songs: list = list(songs)
+        self._slot_map: dict = {}       # slot_num → index in _songs
+        self._played: set = set()
+        self._skipped: set = set()
+        self._current_slot: Optional[int] = None
+        self._assign_slots()
+
+    def _assign_slots(self) -> None:
+        counter = 1
+        for i, song in enumerate(self._songs):
+            if song.get("status", "confirmed") == "alternate":
+                continue
+            slot = song.get("slot")
+            if slot is not None:
+                self._slot_map[int(slot)] = i
+            else:
+                self._slot_map[counter] = i
+                counter += 1
+
+    def confirmed_slots(self) -> list:
+        return sorted(self._slot_map)
+
+    def song_at_slot(self, slot: int) -> Optional[dict]:
+        idx = self._slot_map.get(slot)
+        return self._songs[idx] if idx is not None else None
+
+    def alternate_for_slot(self, slot: int) -> Optional[dict]:
+        for song in self._songs:
+            if song.get("status") == "alternate" and song.get("replaces") == slot:
+                return song
+        return None
+
+    def alternates(self) -> list:
+        return [s for s in self._songs if s.get("status") == "alternate"]
+
+    def _next_unplayed_slot(self, after: Optional[int]) -> Optional[int]:
+        slots = self.confirmed_slots()
+        if after is None:
+            candidates = slots
+        else:
+            try:
+                idx = slots.index(after)
+                candidates = slots[idx + 1:]
+            except ValueError:
+                candidates = [s for s in slots if s > after]
+        return next((s for s in candidates if s not in self._skipped), None)
+
+    def advance(self) -> Optional[tuple]:
+        slot = self._next_unplayed_slot(self._current_slot)
+        if slot is None:
+            return None
+        self._current_slot = slot
+        return slot, self.song_at_slot(slot)
+
+    def jump_to(self, slot: int) -> Optional[tuple]:
+        song = self.song_at_slot(slot)
+        if song is None:
+            return None
+        self._current_slot = slot
+        return slot, song
+
+    def go_back(self) -> Optional[tuple]:
+        slots = self.confirmed_slots()
+        if self._current_slot is None:
+            return None
+        before = [s for s in slots if s < self._current_slot]
+        if not before:
+            return None
+        slot = before[-1]
+        self._current_slot = slot
+        return slot, self.song_at_slot(slot)
+
+    def skip_current(self) -> None:
+        if self._current_slot is not None:
+            self._skipped.add(self._current_slot)
+
+    def swap(self, slot: int) -> Optional[tuple]:
+        alt = self.alternate_for_slot(slot)
+        if alt is None:
+            return None
+        idx = self._slot_map.get(slot)
+        if idx is None:
+            return None
+        self._songs[idx] = {**alt, "status": "confirmed", "slot": slot}
+        return slot, self._songs[idx]
+
+    def add_song(self, title: str, genre: str) -> tuple:
+        slots = self.confirmed_slots()
+        new_slot = (max(slots) + 1) if slots else 1
+        new_song = {"title": title, "genre_profile": genre,
+                    "status": "confirmed", "slot": new_slot}
+        self._songs.append(new_song)
+        self._slot_map[new_slot] = len(self._songs) - 1
+        return new_slot, new_song
+
+    def mark_played(self, slot: int) -> None:
+        self._played.add(slot)
+
+    def flag_channels_for_genre(self, genre, channels: dict) -> list:
+        """Return warning strings for channels significantly off from genre weight targets."""
+        flags = []
+        for ch in channels.values():
+            weight = genre.weight_for_channel(ch.label)
+            if weight is None:
+                continue
+            target = _PRIORITY_FADER_TARGET.get(weight.priority, -10.0)
+            diff = ch.fader_db - target
+            if abs(diff) >= 2.0:
+                direction = "above" if diff > 0 else "below"
+                flags.append(
+                    f"  {ch.label} fader {abs(diff):.0f}dB {direction} "
+                    f"{genre.id} weight target"
+                )
+        return flags
+
+    def format_setlist(self) -> str:
+        sep = "━" * 33
+        lines = ["", sep, "SETLIST — Set 1", sep]
+        for slot in self.confirmed_slots():
+            song = self.song_at_slot(slot)
+            if song is None:
+                continue
+            title = song.get("title", "?")
+            genre = song.get("genre_profile", "")
+            genre_str = f"[{genre}]" if genre else ""
+
+            marker = "▶" if slot == self._current_slot else " "
+            suffix = " ← current" if slot == self._current_slot else ""
+
+            if slot in self._played:
+                status_str = "✓ played"
+            elif slot in self._skipped:
+                status_str = "— skipped"
+            else:
+                status_str = ""
+
+            lines.append(
+                f"{marker} {slot}.  {title:<28} {genre_str:<15} {status_str}{suffix}"
+            )
+
+        for alt in self.alternates():
+            title = alt.get("title", "?")
+            replaces = alt.get("replaces", "?")
+            lines.append(f"     [ALTERNATE] {title}  (replaces slot {replaces})")
+
+        lines.append(sep)
+        return "\n".join(lines)
 
 
 def main() -> None:
@@ -144,6 +307,7 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                   osc: X32OSCClient, capture: AudioCapture, analyzer: Analyzer,
                   logger: SessionLogger, initial_channels: dict) -> None:
     from types import SimpleNamespace
+    from core.ambient import AmbientCapture
 
     engine        = RecommendationEngine(band_cfg, genre)
     thresholds    = band_cfg.get("thresholds", {})
@@ -153,19 +317,25 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
     prev_channels    = initial_channels.copy()
     current_channels = initial_channels.copy()
 
-    # Mutable show state shared across inner functions via SimpleNamespace
+    navigator = SetlistNavigator(setlist) if setlist else None
+    ambient_capture = AmbientCapture()
+
     st = SimpleNamespace(
-        song_active  = False,   # True while a song is in progress
-        song_idx     = -1,      # 0-based setlist index; -1 = none
+        song_active  = False,
+        song_idx     = -1,      # slot number of current song (1-based); -1 = none
         song_counter = 0,       # auto-increment for no-setlist mode
-        active_genre = genre,   # updated when n loads a new song's profile
+        active_genre = genre,
+        pending_cmd  = None,    # multi-step command state: None | "ambient_type" | ...
+        pending_args = {},
     )
 
     print("\nShow mode active. Press Ctrl+C to end and generate report.")
     print("  s = board state   g = room analysis   b = baseline drift")
-    print("  n = next song     e = end song early\n")
+    print("  n = next song     e = end song early   p = print setlist")
+    print("  a = ambient capture   skip = skip song   sw{N} = swap slot N")
+    print("  n{N} = jump to slot N   n-1 = go back   add = add song\n")
 
-    kb_queue: list[str] = []
+    kb_queue: list = []
     def kb_listener():
         while True:
             line = sys.stdin.readline().strip().lower()
@@ -174,60 +344,113 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
     kb_thread = threading.Thread(target=kb_listener, daemon=True)
     kb_thread.start()
 
+    # ── Genre transition output ──────────────────────────────────────────
+
+    def _print_genre_transition(prev_g, new_g) -> None:
+        from models.event import BAND_NAMES as _BANDS
+        print(f"  Genre shift: {prev_g.id} → {new_g.id}")
+        if abs(new_g.target_lufs - prev_g.target_lufs) >= 1.0:
+            print(f"  Target LUFS: {prev_g.target_lufs:.0f} → {new_g.target_lufs:.0f}")
+        for band in _BANDS:
+            prev_t = prev_g.target_for_band(band)
+            new_t  = new_g.target_for_band(band)
+            if abs(new_t - prev_t) >= 1.0:
+                prev_str = "neutral" if abs(prev_t) < 0.5 else f"{prev_t:+.0f}dB"
+                new_str  = "neutral" if abs(new_t)  < 0.5 else f"{new_t:+.0f}dB"
+                label = band.replace("_", "-").title()
+                print(f"  {label} target: {prev_str} → {new_str}")
+        if navigator:
+            for flag in navigator.flag_channels_for_genre(new_g, current_channels):
+                print(flag)
+
     # ── Song transition helpers ──────────────────────────────────────────
 
     def _end_current_song(silent: bool = False) -> None:
         if not st.song_active:
             return
-        engine.set_transition(False)   # cancel any active grace first
+        engine.set_transition(False)
         logger.log_song_end()
         engine.set_transition(True)
         if not silent:
             print(f"\n[{time.strftime('%H:%M:%S')}] SONG END — transition grace {grace_s}s")
         st.song_active = False
 
-    def _start_song(idx: int, song) -> None:
-        # Load genre profile if the song specifies one
-        if song:
-            sg_id = song.get("genre_profile", default_genre)
-            if sg_id in profiles:
-                st.active_genre = profiles[sg_id]
-                engine.set_genre(st.active_genre)
+    def _start_song(slot: int, song: Optional[dict], prev_genre=None,
+                    nav_type: str = "sequential") -> None:
+        # Capture prev song title before state changes
+        prev_title = ""
+        if navigator and navigator._current_slot is not None:
+            prev_s = navigator.song_at_slot(navigator._current_slot)
+            prev_title = prev_s.get("title", "") if prev_s else ""
 
-        engine.set_transition(False)   # clear any leftover grace from previous song
-        logger.log_song_start(song, max(idx + 1, 1), st.active_genre.id)
-        engine.set_transition(True)    # enter grace for this new song
+        sg_id = song.get("genre_profile", default_genre) if song else default_genre
+        if sg_id in profiles:
+            st.active_genre = profiles[sg_id]
+            engine.set_genre(st.active_genre)
+
+        engine.set_transition(False)
+        logger.log_song_start(song, max(slot, 1), st.active_genre.id)
+        engine.set_transition(True)
 
         ts = time.strftime("%H:%M:%S")
         if song:
-            title  = song.get("title",  "?")
-            artist = song.get("artist", "?")
-            print(f"\n[{ts}] SONG START: {title} ({artist}) — {st.active_genre.id}")
+            title = song.get("title", "?")
+            print(f"\n[{ts}] ▶ Song {slot} — {title} [{st.active_genre.id}]")
         else:
             st.song_counter += 1
-            print(f"\n[{ts}] SONG START #{st.song_counter}")
+            print(f"\n[{ts}] ▶ Song {st.song_counter}")
         print(f"  Transition grace: {grace_s}s")
 
-        st.song_idx    = idx
+        if prev_genre and prev_genre.id != st.active_genre.id:
+            _print_genre_transition(prev_genre, st.active_genre)
+
+        logger.log_event(
+            "SETLIST_NAV",
+            detail=(f"nav_type={nav_type} slot={slot} "
+                    f"song={song.get('title', '') if song else ''} "
+                    f"genre={st.active_genre.id} prev_song={prev_title}"),
+        )
+
+        if navigator:
+            navigator.mark_played(slot)
+            navigator._current_slot = slot
+
+        st.song_idx    = slot
         st.song_active = True
 
     def _handle_next() -> None:
-        _end_current_song(silent=True)   # end silently; _start_song prints header
-
-        if setlist:
-            next_idx = st.song_idx + 1
-            if next_idx < len(setlist):
-                _start_song(next_idx, setlist[next_idx])
+        prev_genre = st.active_genre
+        _end_current_song(silent=True)
+        if navigator:
+            result = navigator.advance()
+            if result:
+                slot, song = result
+                _start_song(slot, song, prev_genre, nav_type="sequential")
             else:
                 print(f"\n[{time.strftime('%H:%M:%S')}] End of setlist — transition grace {grace_s}s")
         else:
-            _start_song(-1, None)
+            _start_song(st.song_idx + 1, None, prev_genre, nav_type="sequential")
 
     def _handle_end_early() -> None:
         if not st.song_active:
             print("\nNo song currently active.")
             return
         _end_current_song()
+
+    # ── Ambient capture (runs in background thread) ──────────────────────
+
+    def _do_ambient_capture(bl_type: str, duration_s: int) -> None:
+        from models.event import BAND_NAMES as _BANDS
+        bl = ambient_capture.capture(capture, analyzer, duration_s, bl_type)
+        ts = time.strftime("%H:%M:%S")
+        print(f"\n[{ts}] Ambient capture complete — {bl_type} ({duration_s}s)")
+        print(f"  LUFS: {bl.lufs:.1f}  RMS: {bl.rms_db:.1f}dB")
+        for band in _BANDS:
+            print(f"  {band:<12} {bl.bands.get(band, -90.0):>7.1f}dB")
+        print("  Ambient baseline saved — crowd noise correction active")
+        logger.log_event("AMBIENT_CAPTURE",
+                         detail=f"type={bl_type} duration={duration_s}s",
+                         extra=ambient_capture.to_log_dict())
 
     # ── Main loop ────────────────────────────────────────────────────────
 
@@ -256,28 +479,177 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
 
             while kb_queue:
                 cmd = kb_queue.pop(0)
+
+                # ── Multi-step command state machine ─────────────────────
+
+                if st.pending_cmd == "ambient_type":
+                    if cmd in ("e", "c"):
+                        st.pending_args["ambient_type"] = cmd
+                        st.pending_cmd = "ambient_duration"
+                        print("Duration in seconds [60]:")
+                    else:
+                        print("Invalid choice. Press 'a' again.")
+                        st.pending_cmd = None
+                    continue
+
+                if st.pending_cmd == "ambient_duration":
+                    duration = int(cmd) if cmd.strip().isdigit() else 60
+                    bl_type = "empty" if st.pending_args.get("ambient_type") == "e" else "crowd"
+                    st.pending_cmd = None
+                    st.pending_args = {}
+                    threading.Thread(
+                        target=_do_ambient_capture, args=(bl_type, duration), daemon=True
+                    ).start()
+                    continue
+
+                if st.pending_cmd == "add_name":
+                    st.pending_args["title"] = cmd.strip() or "Untitled"
+                    st.pending_cmd = "add_genre"
+                    genre_examples = ", ".join(list(profiles.keys())[:4])
+                    print(f"Genre (e.g. {genre_examples}):")
+                    continue
+
+                if st.pending_cmd == "add_genre":
+                    title = st.pending_args.get("title", "Untitled")
+                    # Case-insensitive lookup
+                    matched = next(
+                        (k for k in profiles if k.lower() == cmd.strip()), None
+                    )
+                    genre_id = matched or default_genre
+                    st.pending_cmd = None
+                    st.pending_args = {}
+                    if navigator:
+                        slot, song = navigator.add_song(title, genre_id)
+                        ts = time.strftime("%H:%M:%S")
+                        print(f"\n[{ts}] Added: {title} [{genre_id}] at slot {slot}")
+                        logger.log_event("SETLIST_ADD",
+                                         detail=f"slot={slot} title={title} genre={genre_id} status=unplanned")
+                    continue
+
+                # ── Normal commands ───────────────────────────────────────
+
                 if cmd == "s":
-                    if st.song_active:
-                        song_info  = (setlist[st.song_idx]
-                                      if setlist and 0 <= st.song_idx < len(setlist)
-                                      else None)
-                        title  = (song_info.get("title",  f"Song {st.song_counter}")
-                                  if song_info else f"Song {st.song_counter}")
+                    if st.song_active and navigator and navigator._current_slot is not None:
+                        song_info = navigator.song_at_slot(navigator._current_slot)
+                        title = song_info.get("title", f"Song {st.song_counter}") if song_info else f"Song {st.song_counter}"
                         artist = song_info.get("artist", "") if song_info else ""
                         elapsed_s = time.time() - logger._current_song_start
-                        m, s = divmod(int(max(elapsed_s, 0)), 60)
+                        m, s_el = divmod(int(max(elapsed_s, 0)), 60)
                         artist_str = f" ({artist})" if artist else ""
                         print(f"\nCurrent song: {title}{artist_str}"
-                              f" — {st.active_genre.id}  [{m}:{s:02d} elapsed]")
+                              f" — {st.active_genre.id}  [{m}:{s_el:02d} elapsed]")
+                    elif st.song_active:
+                        elapsed_s = time.time() - logger._current_song_start
+                        m, s_el = divmod(int(max(elapsed_s, 0)), 60)
+                        print(f"\nSong {st.song_counter} — {st.active_genre.id}  [{m}:{s_el:02d} elapsed]")
                     print_board_state(current_channels)
+
                 elif cmd == "g":
-                    print_room_analysis(analysis, st.active_genre)
+                    ambient_bl = (ambient_capture.active_baseline(is_show=True)
+                                  if ambient_capture.has_baseline() else None)
+                    if not ambient_capture.has_baseline():
+                        logger.log_event("AMBIENT_WARNING",
+                                         detail="No ambient baseline captured — raw readings only")
+                    print_room_analysis(analysis, st.active_genre, ambient_bl=ambient_bl)
+
                 elif cmd == "b":
                     print_baseline_drift(current_channels, engine)
+
                 elif cmd == "n":
                     _handle_next()
+
                 elif cmd == "e":
                     _handle_end_early()
+
+                elif cmd == "p":
+                    if navigator:
+                        print(navigator.format_setlist())
+                    else:
+                        print("\nNo setlist loaded.")
+
+                elif cmd == "a":
+                    st.pending_cmd = "ambient_type"
+                    print("\nCapture type — empty room (e) or crowd break (c)?")
+
+                elif cmd == "skip":
+                    if not st.song_active:
+                        print("\nNo song currently active.")
+                    elif navigator and navigator._current_slot is not None:
+                        slot = navigator._current_slot
+                        song_info = navigator.song_at_slot(slot)
+                        title = song_info.get("title", "?") if song_info else "?"
+                        navigator.skip_current()
+                        ts = time.strftime("%H:%M:%S")
+                        print(f"\n[{ts}] Skipped: {title}")
+                        logger.log_event("SETLIST_SKIP",
+                                         detail=f"slot={slot} title={title} status=skipped")
+                        _handle_next()
+
+                elif cmd == "add":
+                    if navigator:
+                        st.pending_cmd = "add_name"
+                        print("\nSong name:")
+                    else:
+                        print("\nNo setlist loaded — cannot add.")
+
+                elif cmd.startswith("sw") and len(cmd) > 2:
+                    try:
+                        target_slot = int(cmd[2:])
+                        if navigator:
+                            result = navigator.swap(target_slot)
+                            if result:
+                                slot, song = result
+                                ts = time.strftime("%H:%M:%S")
+                                title = song.get("title", "?")
+                                genre_id = song.get("genre_profile", st.active_genre.id)
+                                new_genre = profiles.get(genre_id, st.active_genre)
+                                print(f"\n[{ts}] Swap: slot {slot} → {title} [{new_genre.id}]")
+                                if navigator._current_slot == slot:
+                                    if new_genre.id != st.active_genre.id:
+                                        _print_genre_transition(st.active_genre, new_genre)
+                                        st.active_genre = new_genre
+                                        engine.set_genre(new_genre)
+                                logger.log_event(
+                                    "SETLIST_SWAP",
+                                    detail=f"slot={slot} title={title} genre={new_genre.id} nav_type=swap",
+                                )
+                            else:
+                                print(f"\nNo alternate for slot {target_slot}.")
+                        else:
+                            print("\nNo setlist loaded.")
+                    except ValueError:
+                        pass
+
+                elif cmd.startswith("n") and len(cmd) > 1:
+                    suffix = cmd[1:]
+                    if suffix == "-1":
+                        if navigator:
+                            prev_genre = st.active_genre
+                            _end_current_song(silent=True)
+                            result = navigator.go_back()
+                            if result:
+                                slot, song = result
+                                _start_song(slot, song, prev_genre, nav_type="back")
+                            else:
+                                print("\nAlready at first song.")
+                        else:
+                            print("\nNo setlist loaded.")
+                    else:
+                        try:
+                            target_slot = int(suffix)
+                            if navigator:
+                                prev_genre = st.active_genre
+                                _end_current_song(silent=True)
+                                result = navigator.jump_to(target_slot)
+                                if result:
+                                    slot, song = result
+                                    _start_song(slot, song, prev_genre, nav_type="jump")
+                                else:
+                                    print(f"\nNo song at slot {target_slot}.")
+                            else:
+                                print("\nNo setlist loaded.")
+                        except ValueError:
+                            pass
 
             elapsed = time.time() - cycle_start
             time.sleep(max(0, 1.0 - elapsed))
@@ -427,13 +799,13 @@ def run_test_osc(band_cfg: dict, profiles: dict, x32_ip: str, x32_port: int, gen
     channels = osc.snapshot_all_channels()
     main_db = osc.read_main_fader()
 
-    print(f"\n{'CH':>3}  {'Label':<18} {'Fader':>7}  {'Muted':>6}  {'RMS':>8}  EQ Band 2")
-    print("-" * 65)
+    print(f"\n{'CH':>3}  {'Label':<22} {'Fader':>7}  {'Muted':>6}  {'RMS':>8}  EQ Band 2")
+    print("-" * 69)
     for num in sorted(channels):
         ch = channels[num]
         eq2 = ch.eq[1]
         mute_str = "MUTED" if ch.muted else ""
-        print(f"  {num:>2}  {ch.label:<18} {ch.fader_db:>+6.1f}dB  {mute_str:>6}  "
+        print(f"  {num:>2}  {_display_label(ch):<22} {ch.fader_db:>+6.1f}dB  {mute_str:>6}  "
               f"{ch.rms_db:>7.1f}dBFS  Band2: {eq2.gain_db:+.1f}dB @ {eq2.freq_hz:.0f}Hz")
 
     print(f"\nMain LR fader: {main_db:+.1f}dB")
@@ -460,30 +832,51 @@ def print_header(band_cfg, mode, genre, x32_ip, x32_port,
     print(SEP)
 
 
+def _display_label(ch) -> str:
+    """Return label enriched with X32 name when it differs, for terminal display only."""
+    if ch.x32_name and ch.x32_name != ch.label:
+        return f"{ch.label} ({ch.x32_name})"
+    return ch.label
+
+
 def print_board_state(channels: dict) -> None:
     print(f"\n--- Board State {time.strftime('%H:%M:%S')} ---")
-    print(f"{'CH':>3}  {'Label':<18} {'Fader':>7}  {'Muted':>6}  {'RMS':>8}")
-    print("-" * 50)
+    print(f"{'CH':>3}  {'Label':<22} {'Fader':>7}  {'Muted':>6}  {'RMS':>8}")
+    print("-" * 54)
     for num in sorted(channels):
         ch = channels[num]
         mute_str = "MUTED" if ch.muted else ""
-        print(f"  {num:>2}  {ch.label:<18} {ch.fader_db:>+6.1f}dB  {mute_str:>6}  "
+        print(f"  {num:>2}  {_display_label(ch):<22} {ch.fader_db:>+6.1f}dB  {mute_str:>6}  "
               f"{ch.rms_db:>7.1f}dBFS")
     print()
 
 
-def print_room_analysis(analysis, genre) -> None:
+def print_room_analysis(analysis, genre, ambient_bl=None) -> None:
     from models.event import BAND_NAMES
+    from core.ambient import AMBIENT_SNR_THRESHOLD_DB
     print(f"\n--- Room Analysis {time.strftime('%H:%M:%S')} ---")
     print(f"LUFS:  {analysis.lufs:.1f}  (target {genre.target_lufs:.0f}  delta {analysis.lufs_delta:+.1f})")
     print(f"RMS:   {analysis.rms_db:.1f}dB")
-    print(f"\n{'Band':<12} {'Level':>8}  {'Target offset':>14}  {'Delta':>8}")
-    print("-" * 48)
-    for band in BAND_NAMES:
-        level = analysis.bands.get(band, -90.0)
-        target = genre.target_for_band(band)
-        delta = analysis.band_delta.get(band, 0.0)
-        print(f"  {band:<12} {level:>7.1f}dB  {target:>+13.1f}dB  {delta:>+7.1f}dB")
+
+    if ambient_bl is not None:
+        print(f"\n{'Band':<12} {'Raw':>8}  {'Ambient':>8}  {'Corrected':>10}  {'Target':>7}  {'Delta':>7}")
+        print("-" * 62)
+        for band in BAND_NAMES:
+            raw   = analysis.bands.get(band, -90.0)
+            amb   = ambient_bl.bands.get(band, -90.0)
+            corr  = (raw - amb) if (raw - amb) > AMBIENT_SNR_THRESHOLD_DB else raw
+            tgt   = genre.target_for_band(band)
+            delta = analysis.band_delta.get(band, 0.0)
+            print(f"  {band:<12} {raw:>7.1f}dB  {amb:>7.1f}dB  {corr:>9.1f}dB  "
+                  f"{tgt:>+6.1f}dB  {delta:>+6.1f}dB")
+    else:
+        print(f"\n{'Band':<12} {'Level':>8}  {'Target offset':>14}  {'Delta':>8}")
+        print("-" * 48)
+        for band in BAND_NAMES:
+            level = analysis.bands.get(band, -90.0)
+            target = genre.target_for_band(band)
+            delta = analysis.band_delta.get(band, 0.0)
+            print(f"  {band:<12} {level:>7.1f}dB  {target:>+13.1f}dB  {delta:>+7.1f}dB")
     print()
 
 

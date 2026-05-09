@@ -86,6 +86,7 @@ class SimBoard:
                 "on":       1,          # 1 = unmuted
                 "pan":      0.0,
                 "eq_on":    1,
+                "name":     f"CH{ch:02d}",
                 **{f"eq_{b}_type": 2              for b in range(1, 5)},
                 **{f"eq_{b}_f":    hz_to_eq_float(1000.0) for b in range(1, 5)},
                 **{f"eq_{b}_g":    0.0             for b in range(1, 5)},
@@ -399,6 +400,12 @@ class X32Simulator:
                              f"ch/{ch_num:02d}/gate",
                              int(self._board.get(ch_num, "gate_on")    or 0),
                              float(self._board.get(ch_num, "gate_thr") or -40.0))
+
+            elif section == "config":
+                name = self._board.get(ch_num, "name") or f"CH{ch_num:02d}"
+                self._reply(client_address, "/node",
+                             f"ch/{ch_num:02d}/config",
+                             f'"{name}" 0 0 0')
 
         elif len(parts) >= 2 and parts[0] == "main":
             self._reply(client_address, "/node",

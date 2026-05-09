@@ -40,6 +40,7 @@ class ChannelState:
     hpf_freq_hz: float = 80.0
     hpf_slope: int = 1                  # 0=6dB/oct, 1=12dB/oct, 2=18dB/oct, 3=24dB/oct
     input_gain_db: float = 0.0
+    x32_name: str = ""                  # name as set on X32 tablet — from /ch/{nn}/config/name
 
     def is_active(self) -> bool:
         """Returns False if channel is muted or below its inactive threshold."""

@@ -1,10 +1,12 @@
-# Optional — if present, used for display and logging context only in Phase 1.
-# Per-song genre switching is Phase 2. Default genre from band.yaml is used throughout.
+# Optional — songs without status/slot/replaces continue to work (backward compatible).
+# status: confirmed | alternate   slot: explicit 1-based slot number   replaces: slot number
 
 songs:
   - title: "Don't Stop Believin'"
     artist: "Journey"
     genre_profile: "AOR"
+    status: confirmed
+    slot: 1
     duration_s: 251
     reference_file: null
     reference_analyzed: false
@@ -12,6 +14,8 @@ songs:
   - title: "Round and Round"
     artist: "Ratt"
     genre_profile: "Glam Metal"
+    status: confirmed
+    slot: 2
     duration_s: 240
     reference_file: null
     reference_analyzed: false
@@ -19,6 +23,8 @@ songs:
   - title: "Bad Reputation"
     artist: "Joan Jett"
     genre_profile: "Hard Rock"
+    status: confirmed
+    slot: 3
     duration_s: 193
     reference_file: null
     reference_analyzed: false
@@ -26,6 +32,8 @@ songs:
   - title: "Highway to Hell"
     artist: "AC/DC"
     genre_profile: "Heavy Rock"
+    status: confirmed
+    slot: 4
     duration_s: 208
     reference_file: null
     reference_analyzed: false
@@ -33,6 +41,8 @@ songs:
   - title: "Breaking the Law"
     artist: "Judas Priest"
     genre_profile: "Heavy Metal"
+    status: confirmed
+    slot: 5
     duration_s: 156
     reference_file: null
     reference_analyzed: false
@@ -40,6 +50,8 @@ songs:
   - title: "Kryptonite"
     artist: "3 Doors Down"
     genre_profile: "Post-Grunge"
+    status: confirmed
+    slot: 6
     duration_s: 234
     reference_file: null
     reference_analyzed: false
@@ -48,6 +60,8 @@ songs:
   - title: "Fight for Your Right"
     artist: "Beastie Boys"
     genre_profile: "Party Rock"
+    status: confirmed
+    slot: 7
     duration_s: 175
     reference_file: null
     reference_analyzed: false

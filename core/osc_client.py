@@ -193,6 +193,7 @@ class X32OSCClient:
             self._send("/node", [f"ch/{ch}/dyn"])
             self._send("/node", [f"ch/{ch}/gate"])
             self._send("/node", [f"ch/{ch}/preamp"])
+            self._send("/node", [f"ch/{ch}/config"])  # pulls name, icon, color, source
         time.sleep(0.3)     # give X32 time to reply
         return self.build_channel_states()
 
@@ -207,7 +208,9 @@ class X32OSCClient:
 
         for ch_num, ch_cfg in self._channel_map.items():
             raw = state_snapshot.get(ch_num, {})
-            label = ch_cfg.get("label", f"CH{ch_num:02d}")
+            yaml_label = ch_cfg.get("label", f"CH{ch_num:02d}")
+            x32_name = raw.get("x32_name", "").strip()
+            label = yaml_label    # canonical identifier; x32_name stored separately for display
             rms_linear = rms_snapshot[ch_num - 1] if ch_num <= 32 else 0.0
 
             eq_bands = []
@@ -247,6 +250,7 @@ class X32OSCClient:
                 hpf_freq_hz=eq_float_to_hz(raw.get("preamp_hpf", 0.3)),
                 hpf_slope=raw.get("preamp_hpslope", 1),
                 input_gain_db=raw.get("preamp_gain", 0.0),
+                x32_name=raw.get("x32_name", ""),
             )
         return result
 
@@ -417,6 +421,11 @@ class X32OSCClient:
                     raw["preamp_hpon"] = int(values[2])
                     raw["preamp_hpf"] = float(values[3])
                     raw["preamp_hpslope"] = int(values[4])
+                elif section == "config" and values:
+                    value_str = str(values[0])
+                    parts_cfg = value_str.split()
+                    if parts_cfg:
+                        raw["x32_name"] = parts_cfg[0].strip('"')
             self._last_push_time[ch_num] = time.time()
 
     def _handle_channel_param(self, address: str, *args) -> None:
