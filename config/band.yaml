@@ -2,7 +2,7 @@ band: "Nostalgic Knights"
 default_genre: "Glam Metal"
 
 x32:
-  ip: "127.0.0.1"
+  ip: "192.168.0.50"
   port: 10023
   poll_interval_ms: 500
   keepalive_interval_s: 8

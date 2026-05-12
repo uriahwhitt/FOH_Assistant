@@ -1,0 +1,3116 @@
+{
+  "session": {
+    "date": "2026-05-09",
+    "band": "Nostalgic Knights",
+    "mode": "show",
+    "x32_ip": "192.168.0.50",
+    "genre_default": "Glam Metal",
+    "started_at": "20:27:22",
+    "ended_at": "23:20:08"
+  },
+  "events": [
+    {
+      "id": "evt_0001",
+      "timestamp": "20:27:22",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 20.1dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-38.1",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0002",
+      "timestamp": "20:27:32",
+      "type": "AMBIENT_WARNING",
+      "channel": null,
+      "channel_num": null,
+      "detail": "No ambient baseline captured \u2014 raw readings only"
+    },
+    {
+      "id": "evt_0003",
+      "timestamp": "20:28:22",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 14.0dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-32.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0004",
+      "timestamp": "20:29:22",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 19.6dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-37.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0005",
+      "timestamp": "20:30:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 22.7dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-40.7",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0006",
+      "timestamp": "20:30:23",
+      "type": "SONG_START",
+      "title": "Working for the Weekend",
+      "artist": "Loverboy",
+      "genre_profile": "AOR",
+      "setlist_position": 1
+    },
+    {
+      "id": "evt_0007",
+      "timestamp": "20:30:23",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=1 song=Working for the Weekend genre=AOR prev_song=Working for the Weekend"
+    },
+    {
+      "id": "evt_0008",
+      "timestamp": "20:31:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 6.9dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-13.1",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -6.9dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0009",
+      "timestamp": "20:31:26",
+      "type": "AMBIENT_WARNING",
+      "channel": null,
+      "channel_num": null,
+      "detail": "No ambient baseline captured \u2014 raw readings only"
+    },
+    {
+      "id": "evt_0010",
+      "timestamp": "20:32:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 5.7dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-14.3",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -5.7dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0011",
+      "timestamp": "20:32:45",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Guitar 1",
+      "channel_num": 7,
+      "parameter": "fader",
+      "before": 0.0,
+      "after": 2.77,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0012",
+      "timestamp": "20:32:49",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Guitar 2",
+      "channel_num": 8,
+      "parameter": "fader",
+      "before": 0.0,
+      "after": 2.65,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0013",
+      "timestamp": "20:33:03",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Guitar 1",
+      "channel_num": 7,
+      "parameter": "fader",
+      "before": 3.04,
+      "after": 3.82,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0014",
+      "timestamp": "20:33:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.6dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.4",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.6dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0015",
+      "timestamp": "20:34:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 12.6dB low vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-32.6",
+        "target": "-20.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0016",
+      "timestamp": "20:34:25",
+      "type": "SONG_END",
+      "title": "Working for the Weekend",
+      "duration_s": 242.1
+    },
+    {
+      "id": "evt_0017",
+      "timestamp": "20:34:30",
+      "type": "SONG_START",
+      "title": "Any Way You Want It",
+      "artist": "Journey",
+      "genre_profile": "AOR",
+      "setlist_position": 2
+    },
+    {
+      "id": "evt_0018",
+      "timestamp": "20:34:30",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=2 song=Any Way You Want It genre=AOR prev_song=Any Way You Want It"
+    },
+    {
+      "id": "evt_0019",
+      "timestamp": "20:35:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 5.3dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-14.7",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -5.3dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0020",
+      "timestamp": "20:36:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 5.6dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-14.4",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -5.6dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0021",
+      "timestamp": "20:37:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 5.0dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-15.0",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -5.0dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0022",
+      "timestamp": "20:37:31",
+      "type": "SONG_END",
+      "title": "Any Way You Want It",
+      "duration_s": 181.1
+    },
+    {
+      "id": "evt_0023",
+      "timestamp": "20:37:31",
+      "type": "SONG_START",
+      "title": "Hit Me With Your Best Shot",
+      "artist": "Pat Benatar",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 3
+    },
+    {
+      "id": "evt_0024",
+      "timestamp": "20:37:31",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=3 song=Hit Me With Your Best Shot genre=Hard Rock prev_song=Hit Me With Your Best Shot"
+    },
+    {
+      "id": "evt_0025",
+      "timestamp": "20:38:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 4.7dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-13.3",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -4.7dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0026",
+      "timestamp": "20:39:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.5dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.5",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.5dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0027",
+      "timestamp": "20:39:41",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Guitar 2",
+      "channel_num": 8,
+      "parameter": "fader",
+      "before": 2.88,
+      "after": 1.87,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0028",
+      "timestamp": "20:39:42",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Guitar 2",
+      "channel_num": 8,
+      "parameter": "fader",
+      "before": 1.87,
+      "after": 2.38,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0029",
+      "timestamp": "20:40:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 3.9dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-14.1",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -3.9dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0030",
+      "timestamp": "20:40:45",
+      "type": "SONG_END",
+      "title": "Hit Me With Your Best Shot",
+      "duration_s": 194.1
+    },
+    {
+      "id": "evt_0031",
+      "timestamp": "20:40:45",
+      "type": "SONG_START",
+      "title": "Summer of '69",
+      "artist": "Bryan Adams",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 4
+    },
+    {
+      "id": "evt_0032",
+      "timestamp": "20:40:45",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=4 song=Summer of '69 genre=Hard Rock prev_song=Summer of '69"
+    },
+    {
+      "id": "evt_0033",
+      "timestamp": "20:41:23",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.4dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.4dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0034",
+      "timestamp": "20:42:27",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.9dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.1",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.9dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0035",
+      "timestamp": "20:43:28",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.0dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-16.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.0dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0036",
+      "timestamp": "20:44:01",
+      "type": "SONG_END",
+      "title": "Summer of '69",
+      "duration_s": 196.1
+    },
+    {
+      "id": "evt_0037",
+      "timestamp": "20:44:01",
+      "type": "SONG_START",
+      "title": "Kryptonite",
+      "artist": "3 Doors Down",
+      "genre_profile": "Post-Grunge",
+      "setlist_position": 5
+    },
+    {
+      "id": "evt_0038",
+      "timestamp": "20:44:01",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=5 song=Kryptonite genre=Post-Grunge prev_song=Kryptonite"
+    },
+    {
+      "id": "evt_0039",
+      "timestamp": "20:44:28",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Post-Grunge",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 8.6dB low vs Post-Grunge target (-17 LUFS)",
+      "current_state": {
+        "lufs": "-25.6",
+        "target": "-17.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0040",
+      "timestamp": "20:45:28",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Post-Grunge",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 3.3dB hot vs Post-Grunge target (-17 LUFS)",
+      "current_state": {
+        "lufs": "-13.7",
+        "target": "-17.0"
+      },
+      "suggestion": "Pull main bus -3.3dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0041",
+      "timestamp": "20:46:28",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Post-Grunge",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 4.4dB hot vs Post-Grunge target (-17 LUFS)",
+      "current_state": {
+        "lufs": "-12.6",
+        "target": "-17.0"
+      },
+      "suggestion": "Pull main bus -4.4dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0042",
+      "timestamp": "20:47:13",
+      "type": "AMBIENT_WARNING",
+      "channel": null,
+      "channel_num": null,
+      "detail": "No ambient baseline captured \u2014 raw readings only"
+    },
+    {
+      "id": "evt_0043",
+      "timestamp": "20:47:33",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Post-Grunge",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.2dB hot vs Post-Grunge target (-17 LUFS)",
+      "current_state": {
+        "lufs": "-14.8",
+        "target": "-17.0"
+      },
+      "suggestion": "Pull main bus -2.2dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0044",
+      "timestamp": "20:48:04",
+      "type": "SONG_END",
+      "title": "Kryptonite",
+      "duration_s": 243.1
+    },
+    {
+      "id": "evt_0045",
+      "timestamp": "20:48:04",
+      "type": "SONG_START",
+      "title": "Danger Zone",
+      "artist": "Kenny Loggins",
+      "genre_profile": "AOR",
+      "setlist_position": 6
+    },
+    {
+      "id": "evt_0046",
+      "timestamp": "20:48:04",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=6 song=Danger Zone genre=AOR prev_song=Danger Zone"
+    },
+    {
+      "id": "evt_0047",
+      "timestamp": "20:48:33",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 11.6dB low vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-31.6",
+        "target": "-20.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0048",
+      "timestamp": "20:49:35",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.8dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.2",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.8dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0049",
+      "timestamp": "20:50:37",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.2dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.8",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.2dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0050",
+      "timestamp": "20:51:37",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.9dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.1",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.9dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0051",
+      "timestamp": "20:52:22",
+      "type": "AMBIENT_WARNING",
+      "channel": null,
+      "channel_num": null,
+      "detail": "No ambient baseline captured \u2014 raw readings only"
+    },
+    {
+      "id": "evt_0052",
+      "timestamp": "20:52:40",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 5.3dB low vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-25.3",
+        "target": "-20.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0053",
+      "timestamp": "20:52:49",
+      "type": "SONG_END",
+      "title": "Danger Zone",
+      "duration_s": 285.1
+    },
+    {
+      "id": "evt_0054",
+      "timestamp": "20:52:49",
+      "type": "SONG_START",
+      "title": "Superstition",
+      "artist": "Stevie Wonder",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 7
+    },
+    {
+      "id": "evt_0055",
+      "timestamp": "20:52:49",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=7 song=Superstition genre=Hard Rock prev_song=Superstition"
+    },
+    {
+      "id": "evt_0056",
+      "timestamp": "20:53:40",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.2dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.2",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0057",
+      "timestamp": "20:55:20",
+      "type": "AMBIENT_WARNING",
+      "channel": null,
+      "channel_num": null,
+      "detail": "No ambient baseline captured \u2014 raw readings only"
+    },
+    {
+      "id": "evt_0058",
+      "timestamp": "20:55:49",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.0dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-16.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.0dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0059",
+      "timestamp": "20:57:33",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.4dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.4dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0060",
+      "timestamp": "20:57:47",
+      "type": "SONG_END",
+      "title": "Superstition",
+      "duration_s": 298.2
+    },
+    {
+      "id": "evt_0061",
+      "timestamp": "20:57:47",
+      "type": "SONG_START",
+      "title": "Fallen Angel",
+      "artist": "Poison",
+      "genre_profile": "Glam Metal",
+      "setlist_position": 8
+    },
+    {
+      "id": "evt_0062",
+      "timestamp": "20:57:47",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=8 song=Fallen Angel genre=Glam Metal prev_song=Fallen Angel"
+    },
+    {
+      "id": "evt_0063",
+      "timestamp": "20:58:31",
+      "type": "SONG_END",
+      "title": "Fallen Angel",
+      "duration_s": 44.0
+    },
+    {
+      "id": "evt_0064",
+      "timestamp": "20:58:39",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 10.6dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-28.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0065",
+      "timestamp": "20:59:56",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.1dB hot vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.1dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0066",
+      "timestamp": "21:01:01",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.3dB hot vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.7",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.3dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0067",
+      "timestamp": "21:02:02",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.0dB hot vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-16.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.0dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0068",
+      "timestamp": "21:03:00",
+      "type": "SONG_START",
+      "title": "Fallen Angel",
+      "artist": "Poison",
+      "genre_profile": "Glam Metal",
+      "setlist_position": 8
+    },
+    {
+      "id": "evt_0069",
+      "timestamp": "21:03:00",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=jump slot=8 song=Fallen Angel genre=Glam Metal prev_song=Fallen Angel"
+    },
+    {
+      "id": "evt_0070",
+      "timestamp": "21:03:09",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 25.7dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-43.7",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0071",
+      "timestamp": "21:04:12",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.5dB hot vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.5",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.5dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0072",
+      "timestamp": "21:05:39",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.7dB hot vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.3",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.7dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0073",
+      "timestamp": "21:06:40",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.6dB hot vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.4",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.6dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0074",
+      "timestamp": "21:07:20",
+      "type": "SONG_END",
+      "title": "Fallen Angel",
+      "duration_s": 260.1
+    },
+    {
+      "id": "evt_0075",
+      "timestamp": "21:07:20",
+      "type": "SONG_START",
+      "title": "Can't Get Enough",
+      "artist": "Bad Company",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 9
+    },
+    {
+      "id": "evt_0076",
+      "timestamp": "21:07:20",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=9 song=Can't Get Enough genre=Hard Rock prev_song=Can't Get Enough"
+    },
+    {
+      "id": "evt_0077",
+      "timestamp": "21:07:40",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 17.9dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-35.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0078",
+      "timestamp": "21:09:20",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.9dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0079",
+      "timestamp": "21:10:24",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.8dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.8",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0080",
+      "timestamp": "21:10:44",
+      "type": "SONG_END",
+      "title": "Can't Get Enough",
+      "duration_s": 204.1
+    },
+    {
+      "id": "evt_0081",
+      "timestamp": "21:10:58",
+      "type": "SONG_START",
+      "title": "Heartache Tonight",
+      "artist": "Eagles",
+      "genre_profile": "AOR",
+      "setlist_position": 10
+    },
+    {
+      "id": "evt_0082",
+      "timestamp": "21:10:58",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=10 song=Heartache Tonight genre=AOR prev_song=Heartache Tonight"
+    },
+    {
+      "id": "evt_0083",
+      "timestamp": "21:11:24",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 5.4dB low vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-25.4",
+        "target": "-20.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0084",
+      "timestamp": "21:12:24",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 4.3dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-15.7",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -4.3dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0085",
+      "timestamp": "21:13:24",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 3.1dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-16.9",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -3.1dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0086",
+      "timestamp": "21:14:24",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 3.3dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-16.7",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -3.3dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0087",
+      "timestamp": "21:15:19",
+      "type": "SONG_END",
+      "title": "Heartache Tonight",
+      "duration_s": 261.1
+    },
+    {
+      "id": "evt_0088",
+      "timestamp": "21:15:19",
+      "type": "SONG_START",
+      "title": "Fortunate Son",
+      "artist": "CCR",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 11
+    },
+    {
+      "id": "evt_0089",
+      "timestamp": "21:15:19",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=11 song=Fortunate Son genre=Hard Rock prev_song=Fortunate Son"
+    },
+    {
+      "id": "evt_0090",
+      "timestamp": "21:15:28",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.6dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.4",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.6dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0091",
+      "timestamp": "21:16:33",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.5dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.5",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.5dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0092",
+      "timestamp": "21:17:34",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.5dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.5",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.5dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0093",
+      "timestamp": "21:18:06",
+      "type": "SONG_END",
+      "title": "Fortunate Son",
+      "duration_s": 167.1
+    },
+    {
+      "id": "evt_0094",
+      "timestamp": "21:18:13",
+      "type": "SONG_START",
+      "title": "Sweet Child of Mine",
+      "artist": "Guns N Roses",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 12
+    },
+    {
+      "id": "evt_0095",
+      "timestamp": "21:18:13",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=12 song=Sweet Child of Mine genre=Hard Rock prev_song=Sweet Child of Mine"
+    },
+    {
+      "id": "evt_0096",
+      "timestamp": "21:18:34",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 12.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-30.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0097",
+      "timestamp": "21:19:34",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 3.6dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-21.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0098",
+      "timestamp": "21:20:41",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.3dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.3",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0099",
+      "timestamp": "21:21:54",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.6dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0100",
+      "timestamp": "21:22:54",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 3.9dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-21.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0101",
+      "timestamp": "21:23:54",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.1dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.1dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0102",
+      "timestamp": "21:24:07",
+      "type": "SONG_END",
+      "title": "Sweet Child of Mine",
+      "duration_s": 354.2
+    },
+    {
+      "id": "evt_0103",
+      "timestamp": "21:24:07",
+      "type": "SONG_START",
+      "title": "Sharp Dressed Man",
+      "artist": "ZZ Top",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 13
+    },
+    {
+      "id": "evt_0104",
+      "timestamp": "21:24:07",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=13 song=Sharp Dressed Man genre=Hard Rock prev_song=Sharp Dressed Man"
+    },
+    {
+      "id": "evt_0105",
+      "timestamp": "21:25:06",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.2dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.2",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0106",
+      "timestamp": "21:26:00",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Lead Vocal",
+      "channel_num": 9,
+      "parameter": "fader",
+      "before": 0.0,
+      "after": 3.27,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0107",
+      "timestamp": "21:26:06",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 3.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-21.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0108",
+      "timestamp": "21:26:50",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Lead Vocal",
+      "channel_num": 9,
+      "parameter": "fader",
+      "before": 3.55,
+      "after": 4.06,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0109",
+      "timestamp": "21:27:06",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 5.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-23.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0110",
+      "timestamp": "21:27:48",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Lead Vocal",
+      "channel_num": 9,
+      "parameter": "fader",
+      "before": 4.45,
+      "after": 3.67,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0111",
+      "timestamp": "21:28:04",
+      "type": "SONG_END",
+      "title": "Sharp Dressed Man",
+      "duration_s": 237.1
+    },
+    {
+      "id": "evt_0112",
+      "timestamp": "21:28:04",
+      "type": "SONG_START",
+      "title": "I Hate Myself for Loving You",
+      "artist": "Joan Jett",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 14
+    },
+    {
+      "id": "evt_0113",
+      "timestamp": "21:28:04",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=14 song=I Hate Myself for Loving You genre=Hard Rock prev_song=I Hate Myself for Loving You"
+    },
+    {
+      "id": "evt_0114",
+      "timestamp": "21:28:13",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 4.2dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-22.2",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0115",
+      "timestamp": "21:29:14",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.4dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.4dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0116",
+      "timestamp": "21:30:14",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 3.0dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -3.0dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0117",
+      "timestamp": "21:31:16",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.0dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-16.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.0dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0118",
+      "timestamp": "21:32:05",
+      "type": "SONG_END",
+      "title": "I Hate Myself for Loving You",
+      "duration_s": 241.1
+    },
+    {
+      "id": "evt_0119",
+      "timestamp": "21:32:05",
+      "type": "SONG_START",
+      "title": "Paris",
+      "artist": "Grace Potter",
+      "genre_profile": "AOR",
+      "setlist_position": 15
+    },
+    {
+      "id": "evt_0120",
+      "timestamp": "21:32:05",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=15 song=Paris genre=AOR prev_song=Paris"
+    },
+    {
+      "id": "evt_0121",
+      "timestamp": "21:32:45",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.2dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.8",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.2dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0122",
+      "timestamp": "21:33:50",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 3.0dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.0",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -3.0dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0123",
+      "timestamp": "21:34:51",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 5.6dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-14.4",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -5.6dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0124",
+      "timestamp": "21:35:41",
+      "type": "SONG_END",
+      "title": "Paris",
+      "duration_s": 215.1
+    },
+    {
+      "id": "evt_0125",
+      "timestamp": "21:35:41",
+      "type": "SONG_START",
+      "title": "Separate Ways",
+      "artist": "Journey",
+      "genre_profile": "AOR",
+      "setlist_position": 16
+    },
+    {
+      "id": "evt_0126",
+      "timestamp": "21:35:41",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=16 song=Separate Ways genre=AOR prev_song=Separate Ways"
+    },
+    {
+      "id": "evt_0127",
+      "timestamp": "21:35:51",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 6.3dB low vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-26.3",
+        "target": "-20.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0128",
+      "timestamp": "21:36:54",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.4dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.6",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.4dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0129",
+      "timestamp": "21:37:15",
+      "type": "AMBIENT_WARNING",
+      "channel": null,
+      "channel_num": null,
+      "detail": "No ambient baseline captured \u2014 raw readings only"
+    },
+    {
+      "id": "evt_0130",
+      "timestamp": "21:37:54",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 4.0dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-16.0",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -4.0dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0131",
+      "timestamp": "21:38:59",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.9dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.1",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.9dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0132",
+      "timestamp": "21:39:59",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.2dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.8",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.2dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0133",
+      "timestamp": "21:40:59",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 4.8dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-15.2",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -4.8dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0134",
+      "timestamp": "21:41:07",
+      "type": "SONG_END",
+      "title": "Separate Ways",
+      "duration_s": 326.2
+    },
+    {
+      "id": "evt_0135",
+      "timestamp": "21:41:07",
+      "type": "SET_BREAK_START",
+      "channel": null,
+      "channel_num": null,
+      "detail": "after_slot=16"
+    },
+    {
+      "id": "evt_0136",
+      "timestamp": "21:59:23",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Acoustic Guitar",
+      "channel_num": 6,
+      "parameter": "fader",
+      "before": 0.0,
+      "after": 2.77,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0137",
+      "timestamp": "22:05:41",
+      "type": "SET_BREAK_END",
+      "channel": null,
+      "channel_num": null,
+      "detail": "set break ended \u2014 starting next set"
+    },
+    {
+      "id": "evt_0138",
+      "timestamp": "22:05:41",
+      "type": "SONG_START",
+      "title": "Cult of Personality",
+      "artist": "Living Colour",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 17
+    },
+    {
+      "id": "evt_0139",
+      "timestamp": "22:05:41",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=17 song=Cult of Personality genre=Hard Rock prev_song=Cult of Personality"
+    },
+    {
+      "id": "evt_0140",
+      "timestamp": "22:05:50",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 23.4dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-41.4",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0141",
+      "timestamp": "22:05:54",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Keys Vocal",
+      "channel_num": 12,
+      "parameter": "fader",
+      "before": 0.0,
+      "after": -1.1,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0142",
+      "timestamp": "22:05:55",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Keys Vocal",
+      "channel_num": 12,
+      "parameter": "fader",
+      "before": -1.1,
+      "after": -1.81,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0143",
+      "timestamp": "22:05:56",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Keys Vocal",
+      "channel_num": 12,
+      "parameter": "fader",
+      "before": -1.81,
+      "after": -0.6,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0144",
+      "timestamp": "22:06:50",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 23.8dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-41.8",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0145",
+      "timestamp": "22:07:53",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.5dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.5",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0146",
+      "timestamp": "22:09:10",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Lead Vocal",
+      "channel_num": 9,
+      "parameter": "fader",
+      "before": 2.49,
+      "after": 3.04,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0147",
+      "timestamp": "22:09:10",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.6dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0148",
+      "timestamp": "22:10:11",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.3dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.3",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0149",
+      "timestamp": "22:11:11",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.6dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0150",
+      "timestamp": "22:11:35",
+      "type": "SONG_END",
+      "title": "Cult of Personality",
+      "duration_s": 354.2
+    },
+    {
+      "id": "evt_0151",
+      "timestamp": "22:11:35",
+      "type": "SONG_START",
+      "title": "Here I Go Again",
+      "artist": "Whitesnake",
+      "genre_profile": "AOR",
+      "setlist_position": 18
+    },
+    {
+      "id": "evt_0152",
+      "timestamp": "22:11:35",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=18 song=Here I Go Again genre=AOR prev_song=Here I Go Again"
+    },
+    {
+      "id": "evt_0153",
+      "timestamp": "22:12:11",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 9.3dB low vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-29.3",
+        "target": "-20.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0154",
+      "timestamp": "22:13:11",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.5dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.5",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.5dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0155",
+      "timestamp": "22:14:13",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.1dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.9",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.1dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0156",
+      "timestamp": "22:14:27",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Keys",
+      "channel_num": 15,
+      "parameter": "fader",
+      "before": 0.0,
+      "after": -4.58,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0157",
+      "timestamp": "22:15:14",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.1dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.9",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.1dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0158",
+      "timestamp": "22:16:14",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.9dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.1",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.9dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0159",
+      "timestamp": "22:16:30",
+      "type": "SONG_END",
+      "title": "Here I Go Again",
+      "duration_s": 295.2
+    },
+    {
+      "id": "evt_0160",
+      "timestamp": "22:16:30",
+      "type": "SONG_START",
+      "title": "Heartbreaker",
+      "artist": "Pat Benatar",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 19
+    },
+    {
+      "id": "evt_0161",
+      "timestamp": "22:16:30",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=19 song=Heartbreaker genre=Hard Rock prev_song=Heartbreaker"
+    },
+    {
+      "id": "evt_0162",
+      "timestamp": "22:17:14",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 16.8dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-34.8",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0163",
+      "timestamp": "22:18:15",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.4dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.4dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0164",
+      "timestamp": "22:19:15",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.8dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.2",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.8dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0165",
+      "timestamp": "22:20:20",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.1dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.1",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0166",
+      "timestamp": "22:21:03",
+      "type": "SONG_END",
+      "title": "Heartbreaker",
+      "duration_s": 273.1
+    },
+    {
+      "id": "evt_0167",
+      "timestamp": "22:21:03",
+      "type": "SONG_START",
+      "title": "Beat It",
+      "artist": "Michael Jackson",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 20
+    },
+    {
+      "id": "evt_0168",
+      "timestamp": "22:21:03",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=20 song=Beat It genre=Hard Rock prev_song=Beat It"
+    },
+    {
+      "id": "evt_0169",
+      "timestamp": "22:21:20",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 17.6dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-35.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0170",
+      "timestamp": "22:22:20",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.5dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.5",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.5dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0171",
+      "timestamp": "22:23:52",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.1dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.1dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0172",
+      "timestamp": "22:24:50",
+      "type": "SONG_END",
+      "title": "Beat It",
+      "duration_s": 227.1
+    },
+    {
+      "id": "evt_0173",
+      "timestamp": "22:24:50",
+      "type": "SONG_START",
+      "title": "Hot Blooded",
+      "artist": "Foreigner",
+      "genre_profile": "AOR",
+      "setlist_position": 21
+    },
+    {
+      "id": "evt_0174",
+      "timestamp": "22:24:50",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=21 song=Hot Blooded genre=AOR prev_song=Hot Blooded"
+    },
+    {
+      "id": "evt_0175",
+      "timestamp": "22:24:58",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Lead Vocal",
+      "channel_num": 9,
+      "parameter": "fader",
+      "before": 2.77,
+      "after": 2.26,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0176",
+      "timestamp": "22:24:59",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 4.0dB low vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-24.0",
+        "target": "-20.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0177",
+      "timestamp": "22:26:00",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.2dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.8",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.2dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0178",
+      "timestamp": "22:27:00",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.5dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.5",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.5dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0179",
+      "timestamp": "22:28:00",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.7dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.3",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.7dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0180",
+      "timestamp": "22:29:00",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.8dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.2",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.8dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0181",
+      "timestamp": "22:29:36",
+      "type": "SONG_END",
+      "title": "Hot Blooded",
+      "duration_s": 286.1
+    },
+    {
+      "id": "evt_0182",
+      "timestamp": "22:29:36",
+      "type": "SONG_START",
+      "title": "Gimme Three Steps",
+      "artist": "Lynyrd Skynyrd",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 22
+    },
+    {
+      "id": "evt_0183",
+      "timestamp": "22:29:36",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=22 song=Gimme Three Steps genre=Hard Rock prev_song=Gimme Three Steps"
+    },
+    {
+      "id": "evt_0184",
+      "timestamp": "22:30:00",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 18.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-36.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0185",
+      "timestamp": "22:33:58",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0186",
+      "timestamp": "22:34:56",
+      "type": "SONG_END",
+      "title": "Gimme Three Steps",
+      "duration_s": 320.2
+    },
+    {
+      "id": "evt_0187",
+      "timestamp": "22:34:56",
+      "type": "SONG_START",
+      "title": "Round and Round",
+      "artist": "Ratt",
+      "genre_profile": "Glam Metal",
+      "setlist_position": 23
+    },
+    {
+      "id": "evt_0188",
+      "timestamp": "22:34:56",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=23 song=Round and Round genre=Glam Metal prev_song=Round and Round"
+    },
+    {
+      "id": "evt_0189",
+      "timestamp": "22:35:05",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 9.0dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-27.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0190",
+      "timestamp": "22:35:17",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Bass",
+      "channel_num": 13,
+      "parameter": "fader",
+      "before": 0.0,
+      "after": -12.31,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0191",
+      "timestamp": "22:36:24",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.4dB hot vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.4dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0192",
+      "timestamp": "22:37:39",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.8dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.8",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0193",
+      "timestamp": "22:38:39",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.1dB hot vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.1dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0194",
+      "timestamp": "22:39:49",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 7.5dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-25.5",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0195",
+      "timestamp": "22:39:52",
+      "type": "SONG_END",
+      "title": "Round and Round",
+      "duration_s": 295.1
+    },
+    {
+      "id": "evt_0196",
+      "timestamp": "22:39:52",
+      "type": "SONG_START",
+      "title": "Your Love",
+      "artist": "The Outfield",
+      "genre_profile": "AOR",
+      "setlist_position": 24
+    },
+    {
+      "id": "evt_0197",
+      "timestamp": "22:39:52",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=24 song=Your Love genre=AOR prev_song=Your Love"
+    },
+    {
+      "id": "evt_0198",
+      "timestamp": "22:40:51",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.1dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.9",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.1dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0199",
+      "timestamp": "22:42:14",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "AOR",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.2dB hot vs AOR target (-20 LUFS)",
+      "current_state": {
+        "lufs": "-17.8",
+        "target": "-20.0"
+      },
+      "suggestion": "Pull main bus -2.2dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0200",
+      "timestamp": "22:42:53",
+      "type": "SONG_END",
+      "title": "Your Love",
+      "duration_s": 181.1
+    },
+    {
+      "id": "evt_0201",
+      "timestamp": "22:42:53",
+      "type": "SONG_START",
+      "title": "Lay Down Sally",
+      "artist": "Eric Clapton",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 25
+    },
+    {
+      "id": "evt_0202",
+      "timestamp": "22:42:53",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=25 song=Lay Down Sally genre=Hard Rock prev_song=Lay Down Sally"
+    },
+    {
+      "id": "evt_0203",
+      "timestamp": "22:43:08",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Bass",
+      "channel_num": 13,
+      "parameter": "fader",
+      "before": -11.29,
+      "after": -12.31,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0204",
+      "timestamp": "22:43:14",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.9dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0205",
+      "timestamp": "22:43:39",
+      "type": "MANUAL_ADJUSTMENT",
+      "channel": "Bassist Vocal",
+      "channel_num": 11,
+      "parameter": "fader",
+      "before": 0.0,
+      "after": 3.94,
+      "prior_recommendation_id": null,
+      "match_status": "engineer_initiated",
+      "suggestion_delta": null,
+      "lag_seconds": null
+    },
+    {
+      "id": "evt_0206",
+      "timestamp": "22:44:16",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 3.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-21.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0207",
+      "timestamp": "22:45:19",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.4dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.4dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0208",
+      "timestamp": "22:46:39",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.2dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.2",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0209",
+      "timestamp": "22:47:01",
+      "type": "SONG_END",
+      "title": "Lay Down Sally",
+      "duration_s": 248.1
+    },
+    {
+      "id": "evt_0210",
+      "timestamp": "22:47:01",
+      "type": "SONG_START",
+      "title": "Me and Bobby McGee",
+      "artist": "Janis Joplin",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 26
+    },
+    {
+      "id": "evt_0211",
+      "timestamp": "22:47:01",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=26 song=Me and Bobby McGee genre=Hard Rock prev_song=Me and Bobby McGee"
+    },
+    {
+      "id": "evt_0212",
+      "timestamp": "22:47:39",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0213",
+      "timestamp": "22:48:42",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.8dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.8",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0214",
+      "timestamp": "22:49:42",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 4.3dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-22.3",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0215",
+      "timestamp": "22:51:16",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.4dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.4dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0216",
+      "timestamp": "22:51:36",
+      "type": "SONG_END",
+      "title": "Me and Bobby McGee",
+      "duration_s": 275.1
+    },
+    {
+      "id": "evt_0217",
+      "timestamp": "22:51:36",
+      "type": "SONG_START",
+      "title": "Fire",
+      "artist": "Jimi Hendrix",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 27
+    },
+    {
+      "id": "evt_0218",
+      "timestamp": "22:51:36",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=27 song=Fire genre=Hard Rock prev_song=Fire"
+    },
+    {
+      "id": "evt_0219",
+      "timestamp": "22:52:16",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 29.6dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-47.6",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0220",
+      "timestamp": "22:53:48",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.0dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-16.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.0dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0221",
+      "timestamp": "22:54:51",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.3dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.7",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.3dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0222",
+      "timestamp": "22:55:31",
+      "type": "SONG_END",
+      "title": "Fire",
+      "duration_s": 235.1
+    },
+    {
+      "id": "evt_0223",
+      "timestamp": "22:55:31",
+      "type": "SONG_START",
+      "title": "Trooper",
+      "artist": "Iron Maiden",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 28
+    },
+    {
+      "id": "evt_0224",
+      "timestamp": "22:55:31",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=28 song=Trooper genre=Hard Rock prev_song=Trooper"
+    },
+    {
+      "id": "evt_0225",
+      "timestamp": "22:55:51",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 22.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-40.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0226",
+      "timestamp": "22:56:51",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.1dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.1dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0227",
+      "timestamp": "22:58:06",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.1dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.1dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0228",
+      "timestamp": "22:59:08",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 3.7dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-21.7",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0229",
+      "timestamp": "23:00:09",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.7dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.7",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0230",
+      "timestamp": "23:00:24",
+      "type": "SONG_END",
+      "title": "Trooper",
+      "duration_s": 293.1
+    },
+    {
+      "id": "evt_0231",
+      "timestamp": "23:00:24",
+      "type": "SONG_START",
+      "title": "Rock of Ages",
+      "artist": "Def Leppard",
+      "genre_profile": "Glam Metal",
+      "setlist_position": 29
+    },
+    {
+      "id": "evt_0232",
+      "timestamp": "23:00:24",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=29 song=Rock of Ages genre=Glam Metal prev_song=Rock of Ages"
+    },
+    {
+      "id": "evt_0233",
+      "timestamp": "23:01:12",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.9dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0234",
+      "timestamp": "23:02:20",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.5dB hot vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.5",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.5dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0235",
+      "timestamp": "23:03:20",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.2dB hot vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.8",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.2dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0236",
+      "timestamp": "23:04:20",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Glam Metal",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.2dB low vs Glam Metal target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.2",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0237",
+      "timestamp": "23:04:32",
+      "type": "SONG_END",
+      "title": "Rock of Ages",
+      "duration_s": 248.1
+    },
+    {
+      "id": "evt_0238",
+      "timestamp": "23:04:32",
+      "type": "SONG_START",
+      "title": "Man in the Box",
+      "artist": "Alice in Chains",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 30
+    },
+    {
+      "id": "evt_0239",
+      "timestamp": "23:04:32",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=30 song=Man in the Box genre=Hard Rock prev_song=Man in the Box"
+    },
+    {
+      "id": "evt_0240",
+      "timestamp": "23:05:30",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.4dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.4",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0241",
+      "timestamp": "23:06:58",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.1dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.1",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0242",
+      "timestamp": "23:07:58",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0243",
+      "timestamp": "23:09:06",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.1dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.1",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0244",
+      "timestamp": "23:09:47",
+      "type": "SONG_END",
+      "title": "Man in the Box",
+      "duration_s": 314.2
+    },
+    {
+      "id": "evt_0245",
+      "timestamp": "23:09:47",
+      "type": "SONG_START",
+      "title": "Welcome to the Jungle",
+      "artist": "Guns N Roses",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 31
+    },
+    {
+      "id": "evt_0246",
+      "timestamp": "23:09:47",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=31 song=Welcome to the Jungle genre=Hard Rock prev_song=Welcome to the Jungle"
+    },
+    {
+      "id": "evt_0247",
+      "timestamp": "23:10:07",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 10.9dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-28.9",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0248",
+      "timestamp": "23:11:20",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.2dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.8",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.2dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0249",
+      "timestamp": "23:12:29",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0250",
+      "timestamp": "23:13:42",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.0dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-16.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.0dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0251",
+      "timestamp": "23:14:38",
+      "type": "SONG_END",
+      "title": "Welcome to the Jungle",
+      "duration_s": 291.1
+    },
+    {
+      "id": "evt_0252",
+      "timestamp": "23:14:38",
+      "type": "SONG_START",
+      "title": "Crazy Train",
+      "artist": "Ozzy",
+      "genre_profile": "Hard Rock",
+      "setlist_position": 32
+    },
+    {
+      "id": "evt_0253",
+      "timestamp": "23:14:38",
+      "type": "SETLIST_NAV",
+      "channel": null,
+      "channel_num": null,
+      "detail": "nav_type=sequential slot=32 song=Crazy Train genre=Hard Rock prev_song=Crazy Train"
+    },
+    {
+      "id": "evt_0254",
+      "timestamp": "23:14:47",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 17.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-35.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0255",
+      "timestamp": "23:16:02",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.0dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.0",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0256",
+      "timestamp": "23:17:17",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_hot",
+      "detail": "Integrated LUFS 2.3dB hot vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-15.7",
+        "target": "-18.0"
+      },
+      "suggestion": "Pull main bus -2.3dB or trim Kick and Drum Rack"
+    },
+    {
+      "id": "evt_0257",
+      "timestamp": "23:18:17",
+      "type": "RECOMMENDATION",
+      "channel": null,
+      "channel_num": null,
+      "genre_profile": "Hard Rock",
+      "issue": "lufs_low",
+      "detail": "Integrated LUFS 2.5dB low vs Hard Rock target (-18 LUFS)",
+      "current_state": {
+        "lufs": "-20.5",
+        "target": "-18.0"
+      },
+      "suggestion": "Main bus may be conservative \u2014 check fader levels"
+    },
+    {
+      "id": "evt_0258",
+      "timestamp": "23:20:08",
+      "type": "SONG_END",
+      "title": "Crazy Train",
+      "duration_s": 330.1
+    }
+  ]
+}
