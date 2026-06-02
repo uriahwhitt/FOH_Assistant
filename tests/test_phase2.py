@@ -1273,6 +1273,110 @@ class TestNormalizeToShape:
 
 
 # ===========================================================================
+# IMP-052 PEAK DETECTION TESTS
+# ===========================================================================
+
+class TestPeakDetection:
+
+    def test_find_band_peak_spike(self):
+        """A spike at 315Hz in a flat spectrum should return peak_hz ≈ 315Hz."""
+        from core.mic_analyzer import find_band_peak
+        spectrum = np.full(N_FREQS, -40.0)
+        idx = int(np.argmin(np.abs(FREQ_AXIS - 315)))
+        spectrum[idx] = -30.0
+        peak_hz, prominence = find_band_peak(spectrum, FREQ_AXIS, 200, 500)
+        assert abs(peak_hz - 315) < 30
+        assert prominence > 5.0
+
+    def test_find_band_peak_flat_band_low_prominence(self):
+        """Flat energy across a band should return near-zero prominence."""
+        from core.mic_analyzer import find_band_peak
+        spectrum = np.full(N_FREQS, -40.0)
+        peak_hz, prominence = find_band_peak(spectrum, FREQ_AXIS, 200, 500)
+        assert prominence < 1.0
+
+    def test_find_band_peak_out_of_range_returns_center(self):
+        """Band with no FREQ_AXIS bins should return band center, 0 prominence."""
+        from core.mic_analyzer import find_band_peak
+        spectrum = np.full(N_FREQS, -40.0)
+        peak_hz, prominence = find_band_peak(spectrum, FREQ_AXIS, 25000.0, 30000.0)
+        assert peak_hz == pytest.approx((25000.0 + 30000.0) / 2.0)
+        assert prominence == 0.0
+
+    def test_compute_band_levels_has_prominence(self):
+        """compute_band_levels() must return peak_prominence_db for every band."""
+        from core.mic_analyzer import compute_band_levels
+        spectrum = np.full(N_FREQS, -40.0)
+        levels = compute_band_levels(spectrum)
+        for band, data in levels.items():
+            assert 'peak_prominence_db' in data, f"Missing peak_prominence_db in {band}"
+            assert 'peak_hz' in data
+            assert 'avg_db' in data
+            assert 'peak_db' in data
+
+    def test_compute_band_levels_prominence_zero_for_flat(self):
+        """Flat spectrum → all prominences ≈ 0."""
+        from core.mic_analyzer import compute_band_levels
+        levels = compute_band_levels(np.full(N_FREQS, -30.0))
+        for band, data in levels.items():
+            assert abs(data['peak_prominence_db']) < 0.1, \
+                f"Expected ~0 prominence for flat spectrum in {band}"
+
+    def test_recommendation_text_includes_peak_hz(self):
+        """Band recommendation text should include the peak Hz value."""
+        from core.recommender import _build_band_recommendation_text
+        mic_band_levels = {
+            'upper_mid': {'peak_hz': 3150.0, 'peak_prominence_db': 2.5,
+                          'avg_db': -38.0, 'peak_db': -35.5}
+        }
+        text = _build_band_recommendation_text(
+            band='upper_mid', direction='buildup', deviation_db=3.8,
+            dominant_channel_label='Guitar 1', mic_band_levels=mic_band_levels
+        )
+        assert '3150' in text
+        assert 'Guitar 1' in text
+
+    def test_named_move_uses_peak_hz(self):
+        """Named move lookup should use peak_hz — 3150Hz falls in Harshness cut range."""
+        from core.recommender import _build_band_recommendation_text
+        mic_band_levels = {
+            'upper_mid': {'peak_hz': 3150.0, 'peak_prominence_db': 2.5,
+                          'avg_db': -38.0, 'peak_db': -35.5}
+        }
+        text = _build_band_recommendation_text(
+            band='upper_mid', direction='buildup', deviation_db=3.8,
+            dominant_channel_label='Guitar 1', mic_band_levels=mic_band_levels
+        )
+        assert 'Harshness cut' in text
+
+    def test_broad_energy_description_when_low_prominence(self):
+        """Low prominence (<= 0.5dB) → 'broad energy' description, not a Hz value."""
+        from core.recommender import _build_band_recommendation_text
+        mic_band_levels = {
+            'bass': {'peak_hz': 150.0, 'peak_prominence_db': 0.2,
+                     'avg_db': -30.0, 'peak_db': -29.8}
+        }
+        text = _build_band_recommendation_text(
+            band='bass', direction='buildup', deviation_db=3.0,
+            dominant_channel_label='Bass', mic_band_levels=mic_band_levels
+        )
+        assert 'broad energy' in text
+
+    def test_sharp_resonance_note_when_high_prominence(self):
+        """Prominence > 2.0dB → 'sharp resonance' note in text."""
+        from core.recommender import _build_band_recommendation_text
+        mic_band_levels = {
+            'upper_mid': {'peak_hz': 3150.0, 'peak_prominence_db': 2.5,
+                          'avg_db': -38.0, 'peak_db': -35.5}
+        }
+        text = _build_band_recommendation_text(
+            band='upper_mid', direction='buildup', deviation_db=3.8,
+            dominant_channel_label='Guitar 1', mic_band_levels=mic_band_levels
+        )
+        assert 'sharp resonance' in text
+
+
+# ===========================================================================
 # MicAnalysis normalized_shape_db FIELD TESTS
 # ===========================================================================
 
@@ -1305,3 +1409,222 @@ class TestMicAnalysisNormalizedShapeField:
             normalized_shape_db=shape,
         )
         assert abs(np.mean(a.normalized_shape_db)) < 1e-8
+
+
+# ===========================================================================
+# IMP-053 DUAL-PATH FFT + DISPLAY BUFFER TESTS
+# ===========================================================================
+
+class TestDisplayPath:
+
+    def _make_capture(self, n_buf=144000, sr=48000):
+        """AudioCapture with a pre-filled buffer of pink-ish noise."""
+        from core.audio_capture import AudioCapture
+        cap = AudioCapture(preferred_sample_rate=sr)
+        cap._sample_rate = sr
+        cap._buffer      = (np.random.randn(n_buf) * 0.1).astype(np.float32)
+        return cap
+
+    def test_get_display_window_returns_n_samples(self):
+        """get_display_window(4800) returns exactly 4800 samples."""
+        cap = self._make_capture()
+        win = cap.get_display_window(4800)
+        assert len(win) == 4800
+
+    def test_get_display_window_clamps_to_buffer_size(self):
+        """Requesting more samples than buffer returns what's available."""
+        from core.audio_capture import AudioCapture
+        cap = AudioCapture()
+        cap._sample_rate = 48000
+        cap._buffer = np.zeros(1000, dtype=np.float32)
+        win = cap.get_display_window(2000)
+        assert len(win) == 1000
+
+    def test_get_display_window_empty_buffer_returns_zeros(self):
+        """Unstarted capture returns empty array."""
+        from core.audio_capture import AudioCapture
+        cap = AudioCapture()
+        assert len(cap.get_display_window(4800)) == 0
+
+    def test_display_spectrum_returns_correct_shape(self):
+        """compute_display_spectrum() returns array of length N_FREQS."""
+        from core.mic_analyzer import MicAnalyzer
+        from core.geometry import IrregularRoomAcoustics
+        cap      = self._make_capture()
+        analyzer = MicAnalyzer(IrregularRoomAcoustics({}))
+        result   = analyzer.compute_display_spectrum(cap)
+        assert len(result) == N_FREQS
+
+    def test_display_ema_separate_from_analysis_ema(self):
+        """Display EMA state must not be the same object as analysis EMA."""
+        from core.mic_analyzer import MicAnalyzer
+        from core.geometry import IrregularRoomAcoustics
+        analyzer = MicAnalyzer(IrregularRoomAcoustics({}))
+        assert analyzer._ema_display is not analyzer._ema_analysis
+
+    def test_display_spectrum_mean_near_zero(self):
+        """Output is normalized to shape — mean should be ≈ 0."""
+        from core.mic_analyzer import MicAnalyzer
+        from core.geometry import IrregularRoomAcoustics
+        cap      = self._make_capture()
+        analyzer = MicAnalyzer(IrregularRoomAcoustics({}))
+        result   = analyzer.compute_display_spectrum(cap)
+        assert abs(float(np.mean(result))) < 1.0
+
+    def test_display_buffer_update_and_snapshot(self):
+        """update() and snapshot() round-trip correctly."""
+        from core.display_buffer import DisplayBuffer
+        buf  = DisplayBuffer()
+        arr  = np.ones(1000) * 3.0
+        buf.update(mic_shape_fast=arr, song_name="Test Song")
+        snap = buf.snapshot()
+        assert np.allclose(snap['mic_shape_fast'], arr)
+        assert snap['song_name'] == "Test Song"
+
+    def test_display_buffer_is_silent_by_default(self):
+        """is_silent defaults to True."""
+        from core.display_buffer import DisplayBuffer
+        assert DisplayBuffer().snapshot()['is_silent'] is True
+
+    def test_display_buffer_unknown_key_ignored(self):
+        """update() with an unknown key does not raise."""
+        from core.display_buffer import DisplayBuffer
+        buf = DisplayBuffer()
+        buf.update(nonexistent_key="value")  # must not raise
+
+    def test_display_buffer_thread_safety(self):
+        """Concurrent update() and snapshot() must not deadlock or corrupt data."""
+        import threading as _threading
+        from core.display_buffer import DisplayBuffer
+        buf    = DisplayBuffer()
+        errors = []
+        stop   = _threading.Event()
+
+        def writer():
+            while not stop.is_set():
+                buf.update(mic_shape_fast=np.random.randn(1000))
+
+        def reader():
+            while not stop.is_set():
+                try:
+                    snap = buf.snapshot()
+                    assert len(snap['mic_shape_fast']) == 1000
+                except Exception as e:
+                    errors.append(e)
+
+        t1 = _threading.Thread(target=writer, daemon=True)
+        t2 = _threading.Thread(target=reader, daemon=True)
+        t1.start()
+        t2.start()
+        time.sleep(0.3)
+        stop.set()
+        assert not errors, f"Thread safety errors: {errors}"
+
+
+# ===========================================================================
+# IMP-051 DISPLAY WINDOW / HELPER FUNCTION TESTS
+# ===========================================================================
+
+class TestDisplayHelpers:
+    """Tests for the display helper functions in main.py."""
+
+    def _make_mic_result(self, shape_db=None):
+        """Build a minimal MicAnalysis with normalized_shape_db populated."""
+        empty = np.full(N_FREQS, -90.0)
+        spec  = shape_db if shape_db is not None else np.zeros(N_FREQS)
+        return MicAnalysis(
+            lufs=-18.0, raw_spectrum_db=spec, corrected_spectrum_db=spec,
+            smoothed_spectrum_db=spec, spectral_delta_db=np.zeros(N_FREQS),
+            band_levels={
+                b: {'avg_db': float(np.mean(spec)), 'peak_db': float(np.max(spec)),
+                    'peak_hz': 1000.0, 'peak_prominence_db': 0.5}
+                for b in ('sub', 'bass', 'low_mid', 'mid_low', 'mid_high',
+                          'upper_mid', 'presence', 'air')
+            },
+            room_mode_flags=np.zeros(N_FREQS, dtype=bool),
+            correction_applied_db=np.zeros(N_FREQS),
+            is_silent=False, timestamp_ms=0.0,
+            normalized_shape_db=spec - float(np.mean(spec)),
+        )
+
+    def _make_genre(self, targets=None):
+        from models.genre_profile import GenreProfile
+        targets = targets or {}
+        return GenreProfile(
+            id='test', name='test', examples=[], target_lufs=-18.0,
+            dynamic_range='medium',
+            frequency_targets={**{b: 0.0 for b in (
+                'sub', 'bass', 'low_mid', 'mid_low', 'mid_high',
+                'upper_mid', 'presence', 'air')}, **targets},
+            instrument_weights=[], notes='',
+        )
+
+    def test_compute_band_highlights_positive_for_excess(self):
+        """Mic elevated in upper_mid above target → positive deviation."""
+        from main import _compute_band_highlights
+        spec = np.zeros(N_FREQS)
+        mask = (FREQ_AXIS >= 2000) & (FREQ_AXIS < 4000)
+        spec[mask] = 6.0   # upper_mid elevated
+        mic  = self._make_mic_result(spec - float(np.mean(spec)))
+        # Provide normalized_shape directly
+        mic.normalized_shape_db = spec - float(np.mean(spec))
+        genre = self._make_genre({'upper_mid': 0.0})
+        highlights = _compute_band_highlights(mic, genre)
+        assert highlights.get('upper_mid', 0.0) > 0.0
+
+    def test_compute_band_highlights_negative_for_deficiency(self):
+        """Mic below target in upper_mid → negative deviation."""
+        from main import _compute_band_highlights
+        spec = np.zeros(N_FREQS)
+        mask = (FREQ_AXIS >= 2000) & (FREQ_AXIS < 4000)
+        spec[mask] = -6.0   # upper_mid deficient
+        mic = self._make_mic_result(spec - float(np.mean(spec)))
+        mic.normalized_shape_db = spec - float(np.mean(spec))
+        genre = self._make_genre({'upper_mid': 0.0})
+        highlights = _compute_band_highlights(mic, genre)
+        assert highlights.get('upper_mid', 0.0) < 0.0
+
+    def test_compute_band_highlights_returns_empty_for_none(self):
+        """None inputs return empty dict without raising."""
+        from main import _compute_band_highlights
+        assert _compute_band_highlights(None, None) == {}
+        assert _compute_band_highlights(None, self._make_genre()) == {}
+
+    def test_extract_band_peaks_returns_hz_and_prominence(self):
+        """_extract_band_peaks returns (peak_hz, prominence) tuples."""
+        from main import _extract_band_peaks
+        mic = self._make_mic_result()
+        peaks = _extract_band_peaks(mic)
+        assert isinstance(peaks, dict)
+        for band, val in peaks.items():
+            assert len(val) == 2  # (peak_hz, prominence_db)
+
+    def test_genre_to_shape_array_correct_length(self):
+        """_genre_to_shape_array returns array of N_FREQS length."""
+        from main import _genre_to_shape_array
+        genre = self._make_genre({'sub': -2.0, 'bass': 1.5, 'upper_mid': 2.0})
+        result = _genre_to_shape_array(genre)
+        assert len(result) == N_FREQS
+
+    def test_display_buffer_full_cycle(self):
+        """Simulate a full analysis-cycle update and verify snapshot."""
+        from core.display_buffer import DisplayBuffer
+        buf   = DisplayBuffer()
+        shape = np.random.randn(N_FREQS) * 3.0
+        buf.update(
+            mic_shape=shape,
+            board_rta_shape=shape * 0.5,
+            genre_target=np.zeros(N_FREQS),
+            band_highlights={'upper_mid': 3.2},
+            band_peaks={'upper_mid': (3150.0, 2.1)},
+            song_name='Round and Round',
+            genre_name='Glam Metal',
+            lufs=-18.5,
+            is_silent=False,
+        )
+        snap = buf.snapshot()
+        assert snap['song_name'] == 'Round and Round'
+        assert snap['genre_name'] == 'Glam Metal'
+        assert abs(snap['lufs'] - (-18.5)) < 0.01
+        assert snap['is_silent'] is False
+        assert snap['band_highlights']['upper_mid'] == pytest.approx(3.2)

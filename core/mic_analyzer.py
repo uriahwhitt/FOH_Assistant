@@ -32,6 +32,8 @@ ANALYSIS_BANDS = [
 ]
 
 ROOM_SILENCE_THRESHOLD_LUFS = -50.0
+DISPLAY_WINDOW_SECONDS = 0.1
+DISPLAY_EMA_ALPHA_MIC  = 0.40
 
 
 def current_time_ms() -> float:
@@ -65,6 +67,42 @@ def normalize_to_shape(spectrum_db: np.ndarray,
     else:
         mean_db = float(np.mean(spectrum_db))
     return spectrum_db - mean_db
+
+
+def find_band_peak(spectrum_db: np.ndarray,
+                   freq_axis: np.ndarray,
+                   band_lo: float,
+                   band_hi: float) -> tuple[float, float]:
+    """Find the peak frequency and its prominence above the band mean.
+
+    Parameters
+    ----------
+    spectrum_db : ndarray
+        Full spectrum on FREQ_AXIS.
+    freq_axis : ndarray
+        Corresponding frequency values in Hz (FREQ_AXIS).
+    band_lo, band_hi : float
+        Band boundaries in Hz.
+
+    Returns
+    -------
+    peak_hz : float
+        Frequency of the peak within the band.
+    peak_prominence_db : float
+        How far the peak sits above the band's arithmetic mean.
+        High = sharp resonance (specific EQ target).
+        Low = broad energy (use band center instead).
+    """
+    mask = (freq_axis >= band_lo) & (freq_axis < band_hi)
+    if not mask.any():
+        return (band_lo + band_hi) / 2.0, 0.0
+
+    band_spectrum = spectrum_db[mask]
+    band_freqs    = freq_axis[mask]
+    band_mean     = float(np.mean(band_spectrum))
+    peak_idx      = int(np.argmax(band_spectrum))
+
+    return float(band_freqs[peak_idx]), float(band_spectrum[peak_idx]) - band_mean
 
 
 def band_average(spectrum_db: np.ndarray, freq_range: tuple) -> float:
@@ -138,24 +176,37 @@ def interpolate_to_freq_axis(freqs_hz: np.ndarray,
 
 
 def compute_band_levels(spectrum_db: np.ndarray) -> dict:
-    """Compute energy summary per analysis band. Returns band_name -> {avg_db, peak_db, peak_hz}."""
+    """Compute energy summary per analysis band.
+
+    Returns band_name → {avg_db, peak_db, peak_hz, peak_prominence_db}.
+    avg_db uses energy averaging (physically correct).
+    peak_prominence_db uses arithmetic mean (consistent with find_band_peak()).
+    """
     results = {}
     for band_name, freq_low, freq_high in ANALYSIS_BANDS:
         mask = (FREQ_AXIS >= freq_low) & (FREQ_AXIS < freq_high)
         if not mask.any():
+            results[band_name] = {
+                'avg_db': -90.0, 'peak_db': -90.0,
+                'peak_hz': (freq_low + freq_high) / 2.0,
+                'peak_prominence_db': 0.0,
+            }
             continue
         band_spectrum = spectrum_db[mask]
         band_freqs    = FREQ_AXIS[mask]
 
         band_linear = 10.0 ** (band_spectrum / 10.0)
-        avg_db  = 10.0 * np.log10(np.maximum(np.mean(band_linear), 1e-12))
-        peak_db = float(np.max(band_spectrum))
-        peak_hz = float(band_freqs[np.argmax(band_spectrum)])
+        avg_db      = 10.0 * np.log10(np.maximum(np.mean(band_linear), 1e-12))
+        peak_idx    = int(np.argmax(band_spectrum))
+        peak_db     = float(band_spectrum[peak_idx])
+        peak_hz     = float(band_freqs[peak_idx])
+        prominence  = peak_db - float(np.mean(band_spectrum))
 
         results[band_name] = {
-            'avg_db':  float(avg_db),
-            'peak_db': peak_db,
-            'peak_hz': peak_hz,
+            'avg_db':             float(avg_db),
+            'peak_db':            peak_db,
+            'peak_hz':            peak_hz,
+            'peak_prominence_db': prominence,
         }
     return results
 
@@ -249,7 +300,8 @@ class MicAnalyzer:
         self.venue_acoustics     = venue_acoustics
         self.correction_curve_db = venue_acoustics.mic_correction_curve()
         self.room_mode_mask_arr  = venue_acoustics.room_mode_mask()
-        self.ema                 = EMAState(alpha=0.3)
+        self._ema_analysis       = EMAState(alpha=0.3)
+        self._ema_display        = EMAState(alpha=DISPLAY_EMA_ALPHA_MIC)
         self._prev_spectrum: Optional[np.ndarray] = None
         self._current_analysis: Optional['MicAnalysis'] = None
 
@@ -279,7 +331,7 @@ class MicAnalyzer:
         raw_spectrum_db = interpolate_to_freq_axis(freqs_hz, raw_psd_db)
 
         corrected_spectrum_db = raw_spectrum_db + self.correction_curve_db
-        smoothed_spectrum_db  = self.ema.update(corrected_spectrum_db)
+        smoothed_spectrum_db  = self._ema_analysis.update(corrected_spectrum_db)
         normalized_shape_db   = normalize_to_shape(smoothed_spectrum_db)
 
         band_levels  = compute_band_levels(smoothed_spectrum_db)
@@ -318,9 +370,41 @@ class MicAnalyzer:
             return np.zeros(N_FREQS)
         return normalize_to_shape(self._current_analysis.smoothed_spectrum_db)
 
+    def compute_display_spectrum(self,
+                                  audio_capture,
+                                  venue_acoustics=None) -> np.ndarray:
+        """Fast display-path spectrum. Single Hanning window, 100ms.
+
+        Returns normalized_shape_db on FREQ_AXIS.
+        For display only — never used for recommendations, logging, or cal/iso scans.
+        """
+        n_samples    = int(DISPLAY_WINDOW_SECONDS * audio_capture.sample_rate)
+        window_audio = audio_capture.get_display_window(n_samples)
+
+        if len(window_audio) < 512:
+            return np.zeros(N_FREQS)
+
+        n        = len(window_audio)
+        windowed = window_audio * np.hanning(n)
+        spectrum = np.fft.rfft(windowed)
+        freqs_hz = np.fft.rfftfreq(n, d=1.0 / audio_capture.sample_rate)
+        psd_db   = 20.0 * np.log10(np.maximum(np.abs(spectrum) / n, 1e-12))
+
+        interpolated = interpolate_to_freq_axis(freqs_hz, psd_db)
+
+        corr = venue_acoustics.mic_correction_curve() if venue_acoustics is not None \
+               else self.correction_curve_db
+        try:
+            interpolated = interpolated + corr
+        except Exception:
+            pass
+
+        smoothed = self._ema_display.update(interpolated)
+        return normalize_to_shape(smoothed)
+
     def reset_ema(self) -> None:
         """Call at song transitions to prevent smearing across songs."""
-        self.ema.reset()
+        self._ema_analysis.reset()
         self._prev_spectrum = None
 
     def characterize_input_event(self,

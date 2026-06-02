@@ -1,8 +1,10 @@
 # FOH Assistant — System Audio Guide
-**Version:** 1.0
+**Version:** 1.1
 **Status:** Active reference — feeds recommendation engine, analyzer, and target curve refinement
-**Last Updated:** 2026-05-06
+**Last Updated:** 2026-05-26
 **Author:** Uriah Whittemore
+
+> **Architecture note (updated May 2026):** This guide was written when the room microphone was the primary per-channel intelligence source. The architecture has since shifted. The room mic is now used for LUFS monitoring and room acoustic characterization only. Per-channel intelligence comes from X32 OSC meter data and EQ transfer function calculations. Sections in this guide that reference "the mic detecting which channel is causing a problem" should be understood as referring to the forward model's channel contribution analysis, not direct mic detection. All frequency engineering principles, thresholds, instrument profiles, and genre targets remain correct and are still consumed by the recommendation engine.
 **Companion to:** FOH_Assistant_Scope_v0.6.md, FOH_Assistant_Phase1_Implementation.md, FOH_Assistant_Design_Improvements.md
 
 ---

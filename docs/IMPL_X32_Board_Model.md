@@ -1,7 +1,7 @@
 # FOH Assistant — X32 Board Model Implementation
 **Document Type:** Claude Code Implementation Reference  
 **Phase:** 2  
-**Last Updated:** 2026-05-12  
+**Last Updated:** 2026-05-26  
 **Depends on:** X32_OSC_Reference.md, FOH_Assistant_Phase1_Implementation.md  
 **Produces:** `core/osc_client.py` (extended), `core/channel_model.py` (new), `models/channel.py` (extended)
 
@@ -746,6 +746,246 @@ The following additions are needed to osc_client.py beyond Phase 1:
       - Call `compute_transfer_curves()` on updated config
       - Log CONFIG_CHANGE event
 - [ ] Expose `board_rta_db` property: latest 100-band RTA as np.ndarray
+
+---
+
+## 7b. RTA Investigation Engine
+
+The X32 RTA is a single switchable analyzer. It must be managed as a shared resource with a state machine to prevent conflicts between continuous monitoring, reactive investigations, and the `cal` calibration scan.
+
+### OSC Primitives
+
+```python
+# Set RTA source
+# 0–31: Ch 01–32 (post-EQ when rta/pos=1)
+# 70:   Main L/R  ← default always-on position
+# 71:   Mono/Center
+osc.send('/-action/setrtasrc', source_int)
+
+# Set chain position (always post-EQ for FOH Assistant)
+osc.send('/-prefs/rta/pos', 1)   # 0=pre-EQ, 1=post-EQ
+
+# Subscribe to /meters/15
+# /batchsubscribe ,ssiii /foh_rta /meters/15 1 0 1
+# Renew every 8 seconds
+```
+
+### RTA State Machine
+
+```python
+from enum import Enum
+
+class RTAState(Enum):
+    MAIN_BUS      = 'main_bus'       # default — /meters/15 on Main L/R
+    INVESTIGATING = 'investigating'  # Tier 2 reactive channel scan
+    CALIBRATING   = 'calibrating'    # Tier 3 cal command scan
+
+class RTAEngine:
+    """
+    Manages the X32 RTA as a shared resource.
+    Exactly one state at all times. INVESTIGATING preempts CALIBRATING.
+    Watchdog timer forces return to MAIN_BUS if stuck > 8 seconds.
+    """
+    WATCHDOG_TIMEOUT_S = 8.0
+    INVESTIGATION_COOLDOWN_S = 30.0   # min gap between Tier 2 scans per band
+    
+    def __init__(self, osc_client):
+        self._osc = osc_client
+        self._state = RTAState.MAIN_BUS
+        self._state_entered_at = time.time()
+        self._last_investigation_by_band: dict[str, float] = {}
+    
+    def _set_state(self, state: RTAState, source_int: int):
+        self._osc.send('/-action/setrtasrc', source_int)
+        self._state = state
+        self._state_entered_at = time.time()
+    
+    def set_main_bus(self):
+        """Return to continuous main bus monitoring."""
+        self._set_state(RTAState.MAIN_BUS, 70)
+    
+    def start_investigation(self, channel_rta_index: int) -> bool:
+        """
+        Switch RTA to a specific channel for Tier 2 investigation.
+        Returns False if cooldown prevents investigation.
+        """
+        if self._state == RTAState.CALIBRATING:
+            # INVESTIGATING preempts CALIBRATING
+            pass
+        self._set_state(RTAState.INVESTIGATING, channel_rta_index)
+        return True
+    
+    def start_cal_scan(self, channel_rta_index: int) -> bool:
+        """
+        Switch RTA to a channel for Tier 3 cal scan.
+        Only allowed from MAIN_BUS state.
+        """
+        if self._state != RTAState.MAIN_BUS:
+            return False
+        self._set_state(RTAState.CALIBRATING, channel_rta_index)
+        return True
+    
+    def check_watchdog(self):
+        """Call every cycle. Forces MAIN_BUS if stuck too long."""
+        if self._state != RTAState.MAIN_BUS:
+            elapsed = time.time() - self._state_entered_at
+            if elapsed > self.WATCHDOG_TIMEOUT_S:
+                self.set_main_bus()
+                # Log error: RTA watchdog fired
+    
+    @property
+    def state(self) -> RTAState:
+        return self._state
+```
+
+### Channel RTA Index Mapping
+
+The `/-action/setrtasrc` integer index for channels is 0-based and differs from the `/meters/1` index:
+
+```python
+def channel_to_rta_index(channel_num: int, post_eq: bool = True) -> int:
+    """
+    Convert 1-based channel number to setrtasrc integer.
+    post_eq=True: adds 98 to get post-EQ index (ch01 post-EQ = 98).
+    post_eq=False: 0-based (ch01 pre-EQ = 0).
+    Always use post_eq=True for FOH Assistant investigations.
+    """
+    if post_eq:
+        return (channel_num - 1) + 98   # ch01=98, ch14=111, ch32=129
+    else:
+        return channel_num - 1          # ch01=0, ch32=31
+
+# Main L/R is always 70 (pre or post equivalent for main bus)
+MAIN_LR_RTA_INDEX = 70
+```
+
+### Tier 2: Reactive Investigation Loop
+
+```python
+async def investigate_channel(rta_engine: RTAEngine,
+                               osc_client,
+                               candidate_channels: list,
+                               problem_band: str,
+                               direction: str) -> dict:
+    """
+    Scan candidate channels in ranked order to find culprit.
+    Returns dict with culprit channel and scan results.
+    Caller must call rta_engine.set_main_bus() after this returns.
+    """
+    results = []
+    
+    for ch in candidate_channels[:5]:   # max 5 candidates
+        rta_idx = channel_to_rta_index(ch.channel_num, post_eq=True)
+        
+        if not rta_engine.start_investigation(rta_idx):
+            continue
+        
+        await asyncio.sleep(0.05)   # one settling frame
+        
+        readings = []
+        for _ in range(3):          # 150ms total (3 × 50ms)
+            readings.append(await osc_client.get_meters_15())
+        
+        # Average the 3 readings
+        avg_spectrum = np.mean(readings, axis=0)
+        actual_db = band_average(avg_spectrum, BAND_RANGES[problem_band])
+        expected_db = ch.model.predicted_band_db(problem_band)
+        deviation = actual_db - expected_db
+        
+        is_culprit = (
+            deviation > CULPRIT_THRESHOLD if direction == 'buildup'
+            else deviation < -CULPRIT_THRESHOLD
+        )
+        
+        results.append({
+            'channel': ch,
+            'actual_db': actual_db,
+            'expected_db': expected_db,
+            'deviation': deviation,
+            'is_culprit': is_culprit,
+        })
+        
+        if is_culprit:
+            break   # exit early — found it
+    
+    # Always return to main bus
+    rta_engine.set_main_bus()
+    return results
+
+CULPRIT_THRESHOLD = 2.0   # dB deviation from model to be considered culprit
+```
+
+### Tier 3: cal Command Scan
+
+```python
+async def run_cal_scan(rta_engine: RTAEngine,
+                        osc_client,
+                        active_channels: list,
+                        forward_model) -> list:
+    """
+    User-triggered calibration scan. Scans all active channels, compares
+    actual RTA to model prediction, updates instrument priors.
+    Returns list of cal results per channel.
+    """
+    results = []
+    total = len(active_channels)
+    
+    print(f"CAL: scanning {total} channels... (~{total * 0.2:.1f}s)")
+    
+    for ch in active_channels:
+        rta_idx = channel_to_rta_index(ch.channel_num, post_eq=True)
+        
+        if not rta_engine.start_cal_scan(rta_idx):
+            print("CAL: interrupted — investigation in progress")
+            break
+        
+        await asyncio.sleep(0.05)   # settling
+        
+        readings = []
+        for _ in range(4):          # 200ms per channel
+            readings.append(await osc_client.get_meters_15())
+        
+        # Discard first (may be settling), average remaining 3
+        avg_spectrum = np.mean(readings[1:], axis=0)
+        
+        band_results = {}
+        for band_name, (freq_lo, freq_hi) in BAND_RANGES.items():
+            actual_db = band_average(avg_spectrum, (freq_lo, freq_hi))
+            predicted_db = forward_model.predicted_band_db(ch.channel_num, band_name)
+            deviation = actual_db - predicted_db
+            
+            status = '✓' if abs(deviation) < 1.5 else ('⚠' if abs(deviation) < 3.0 else '✗')
+            band_results[band_name] = {
+                'actual': actual_db,
+                'predicted': predicted_db,
+                'deviation': deviation,
+                'status': status,
+            }
+        
+        results.append({'channel': ch, 'bands': band_results})
+    
+    rta_engine.set_main_bus()
+    return results
+
+ALPHA = 0.1   # prior update learning rate
+
+def apply_prior_updates(cal_results: list, instrument_priors: dict):
+    """Apply damped prior updates from cal scan results."""
+    updated = []
+    for r in cal_results:
+        for band, data in r['bands'].items():
+            dev = data['deviation']
+            if abs(dev) < 0.5:
+                continue   # sub-threshold — skip
+            inst = r['channel'].instrument_type
+            old = instrument_priors[inst][band]
+            new = old + ALPHA * dev
+            if abs(new - old) < 0.05:
+                continue   # sub-perceptual update — skip
+            instrument_priors[inst][band] = new
+            updated.append({'instrument': inst, 'band': band, 'old': old, 'new': new})
+    return updated
+```
 
 ---
 

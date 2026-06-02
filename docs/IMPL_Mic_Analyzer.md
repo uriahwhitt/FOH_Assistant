@@ -1,7 +1,7 @@
 # FOH Assistant — Reference Microphone Analysis Implementation
 **Document Type:** Claude Code Implementation Reference  
 **Phase:** 2  
-**Last Updated:** 2026-05-12  
+**Last Updated:** 2026-06-02  
 **Depends on:** IMPL_Geometry.md (venue acoustic corrections)  
 **Produces:** `core/mic_analyzer.py` (new), `core/audio_capture.py` (extended)
 
@@ -628,11 +628,134 @@ With geometry correction enabled, feed pink noise.
 Corrected spectrum should be flatter than raw spectrum if correction is non-zero.
 Log both `raw_spectrum_db` and `corrected_spectrum_db` and compare.
 
-### AT2035 vs DJI Comparison
-At June 13 show, log raw (uncorrected) spectra from first 30 minutes.
-Compare to Phase 1 DJI Mic 2 log from May 9 (same venue, similar material).
-AT2035 should show more consistent readings and less variance per cycle.
+### Display Path Validation
+Run `--display` with simulator providing board data and VB-Audio virtual cable as mic input.
+Confirm mic curve updates visually at ~10fps and is visually smoother than the 500ms analysis curve.
+Confirm analysis recommendations still fire correctly — display path does not affect them.
+
+### Peak Detection Validation
+Feed a sine wave at a known frequency within a band (e.g. 315Hz = low_mid).
+`find_band_peak()` should return ~315Hz. `peak_prominence_db` should be high (sharp spike).
+Feed band-limited pink noise (100–500Hz). Peak prominence should be low (no spike, broad energy).
+
+---
+
+## 13. Dual-Path Architecture (IMP-053)
+
+Two parallel FFT paths operate from the same `AudioCapture` buffer. They share audio data — only the analysis window and smoothing differ.
+
+### Path Summary
+
+| | Analysis Path | Display Path |
+|---|---|---|
+| Window | 500ms, Welch's method | 100ms, single Hanning window |
+| Update rate | Every 500ms | Every 100ms |
+| EMA alpha | 0.3 (slow, stable) | 0.4 (faster, more responsive) |
+| Geometry correction | Yes | Yes (same correction curve) |
+| Normalization | `normalize_to_shape()` | `normalize_to_shape()` |
+| Output | `MicAnalysis.normalized_shape_db` | `DisplayBuffer.mic_shape_fast` |
+| Drives recommendations | **Yes** | **Never** |
+| Logged in show JSON | Yes | No |
+
+### `AudioCapture.get_display_window()`
+
+```python
+def get_display_window(self, n_samples: int) -> np.ndarray:
+    """Return the most recent n_samples from the rolling buffer. Display path only."""
+    with self._lock:
+        return self._buffer[-n_samples:].copy()
+```
+
+### `MicAnalyzer.compute_display_spectrum()`
+
+```python
+DISPLAY_WINDOW_SECONDS = 0.1
+DISPLAY_EMA_ALPHA_MIC  = 0.40
+
+def compute_display_spectrum(self, audio_capture: AudioCapture,
+                               venue_acoustics=None) -> np.ndarray:
+    """
+    Fast display-path spectrum. Single Hanning window, 100ms.
+    Returns normalized_shape_db on FREQ_AXIS.
+    For display only — never used for recommendations, logging, or cal scans.
+    """
+    n_samples    = int(DISPLAY_WINDOW_SECONDS * audio_capture.sample_rate)
+    window_audio = audio_capture.get_display_window(n_samples)
+
+    if len(window_audio) < 512:
+        return np.zeros(N_FREQS)
+
+    windowed     = window_audio * np.hanning(len(window_audio))
+    spectrum     = np.fft.rfft(windowed)
+    freqs_hz     = np.fft.rfftfreq(len(window_audio), d=1.0 / audio_capture.sample_rate)
+    psd_db       = 20.0 * np.log10(np.maximum(np.abs(spectrum) / len(window_audio), 1e-12))
+
+    interpolated = interpolate_to_freq_axis(freqs_hz, psd_db)
+
+    if venue_acoustics is not None:
+        interpolated = interpolated + venue_acoustics.mic_correction_curve(FREQ_AXIS)
+
+    smoothed = self._ema_display.update(interpolated)
+    return normalize_to_shape(smoothed)
+```
+
+The `_ema_display` state is separate from `_ema_analysis` — the two paths do not share EMA state.
+
+### When Display Path Runs
+
+Only when `--display` flag is active. Called every 100ms from a lightweight threading.Timer in `main.py`. If `--display` is not set, `compute_display_spectrum()` is never called — zero overhead.
+
+---
+
+## 14. Peak Detection (IMP-052)
+
+### `find_band_peak()`
+
+```python
+def find_band_peak(spectrum_db: np.ndarray,
+                    freq_axis: np.ndarray,
+                    band_lo: float,
+                    band_hi: float) -> tuple[float, float]:
+    """
+    Find the peak frequency and its prominence above the band mean.
+
+    Returns
+    -------
+    peak_hz : float
+        Frequency of peak within the band.
+    peak_prominence_db : float
+        How far the peak sits above the band's own mean level.
+        High value = sharp resonance (specific EQ target).
+        Low value = broad shelf (less specific, use band center).
+    """
+    mask = (freq_axis >= band_lo) & (freq_axis < band_hi)
+    if not mask.any():
+        return (band_lo + band_hi) / 2.0, 0.0
+
+    band_spectrum = spectrum_db[mask]
+    band_freqs    = freq_axis[mask]
+    band_mean     = float(np.mean(band_spectrum))
+    peak_idx      = int(np.argmax(band_spectrum))
+
+    return float(band_freqs[peak_idx]), float(band_spectrum[peak_idx]) - band_mean
+```
+
+### Extended `compute_band_levels()`
+
+`band_levels` dict must include `peak_prominence_db` in addition to `avg_db`, `peak_db`, `peak_hz`. Confirm implementation matches schema. If `peak_prominence_db` is not currently computed, add it via `find_band_peak()`.
+
+### Impact on Recommendation Text
+
+When the recommendation engine fires on a band deviation, it uses `mic_result.band_levels[band]['peak_hz']` as the specific EQ target frequency, not the band center. Named move lookup (`_named_move()`) uses `peak_hz`. Recommendation text format:
+
+```
+Harshness cut — upper_mid +3.8dB · peak at 3150Hz (+2.1dB above band mean)
+  → Guitar 1: EQ cut at 3150Hz, Q≈2.0
+```
+
+If `peak_prominence_db < 0.5dB` (no sharp resonance, broad energy), fall back to band center and omit the prominence note.
 
 ---
 
 *Reference documents: IMPL_X32_Board_Model.md, IMPL_Geometry.md, IMPL_Forward_Mix_Model.md*
+

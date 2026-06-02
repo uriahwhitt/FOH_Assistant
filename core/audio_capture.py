@@ -152,6 +152,17 @@ class AudioCapture:
             buf = np.concatenate([self._buffer[pos:], self._buffer[:pos]])
             return buf.copy(), self._sample_rate
 
+    def get_display_window(self, n_samples: int) -> np.ndarray:
+        """Return the most recent n_samples from the rolling buffer.
+
+        Used by display path only — never for analysis or recommendations.
+        """
+        with self._lock:
+            if self._buffer is None:
+                return np.zeros(0, dtype=np.float32)
+            n = min(n_samples, len(self._buffer))
+            return self._buffer[-n:].copy()
+
     def get_analysis_window(self) -> np.ndarray:
         """Return the most recent FFT_WINDOW_SECONDS of audio (500ms)."""
         n = int(self.FFT_WINDOW_SECONDS * self._sample_rate)

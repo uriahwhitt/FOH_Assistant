@@ -284,6 +284,8 @@ def main() -> None:
                         help="Force specific audio device by index (bypasses name matching)")
     parser.add_argument("--venue",     default=None, help="Venue profile ID to load")
     parser.add_argument("--no-venue",  action="store_true", help="Disable venue profile loading")
+    parser.add_argument('--display', action='store_true',
+                        help='Launch live spectrum display window alongside terminal')
     parser.add_argument("--log-level", default=None, help="Logging level: minimal, summary, full")
     args = parser.parse_args()
 
@@ -429,11 +431,20 @@ def main() -> None:
         rta_engine.set_main_bus()
         print("RTA: monitoring Main L/R post-EQ")
 
+        from core.display_buffer import DisplayBuffer
+        display_buffer = DisplayBuffer()
+        display        = None
+
+        if args.display:
+            from core.display_window import launch_display
+            display = launch_display(display_buffer)
+            _start_display_path(mic_analyzer, capture, venue_acoustics, display_buffer)
+
         run_show_mode(band_cfg, active_genre, profiles, setlist,
                       osc, capture, analyzer, logger, channels,
                       mic_analyzer=mic_analyzer, forward_model=forward_model,
                       spectrum_history=spectrum_history, instrument_priors=instrument_priors,
-                      rta_engine=rta_engine)
+                      rta_engine=rta_engine, display_buffer=display_buffer)
 
     capture.stop()
     osc.close()
@@ -448,7 +459,7 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                   logger: SessionLogger, initial_channels: dict,
                   mic_analyzer=None, forward_model=None,
                   spectrum_history=None, instrument_priors=None,
-                  rta_engine=None) -> None:
+                  rta_engine=None, display_buffer=None) -> None:
     from types import SimpleNamespace
     from core.ambient import AmbientCapture
 
@@ -564,6 +575,16 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
         st.song_idx    = slot
         st.song_active = True
 
+        if display_buffer is not None and st.active_genre:
+            try:
+                display_buffer.update(
+                    genre_target=_genre_to_shape_array(st.active_genre),
+                    song_name=song.get('title', '') if song else '',
+                    genre_name=st.active_genre.id,
+                )
+            except Exception:
+                pass
+
     def _handle_next() -> None:
         if st.in_set_break:
             st.in_set_break = False
@@ -629,6 +650,11 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                     osc.update_dirty_configs()
                 mic_result   = mic_analyzer.analyze(capture)
                 board_rta_db = osc.board_rta_db
+                if display_buffer is not None:
+                    from core.mic_analyzer import normalize_to_shape
+                    display_buffer.update(
+                        board_rta_fast=normalize_to_shape(board_rta_db)
+                    )
                 ch_configs   = osc.channel_configs
                 ch_meters    = osc.channel_meters
                 if spectrum_history is not None:
@@ -640,6 +666,18 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                 )
                 if band_cfg.get('logging', {}).get('analysis_cycle', True):
                     logger.log_analysis_cycle(fm_result, mic_result)
+                if display_buffer is not None and not mic_result.is_silent:
+                    from core.mic_analyzer import normalize_to_shape
+                    display_buffer.update(
+                        board_rta_shape=normalize_to_shape(board_rta_db),
+                        mic_shape=mic_result.normalized_shape_db,
+                        band_highlights=_compute_band_highlights(mic_result, st.active_genre),
+                        band_peaks=_extract_band_peaks(mic_result),
+                        lufs=mic_result.lufs,
+                        is_silent=False,
+                    )
+                elif display_buffer is not None and mic_result is not None:
+                    display_buffer.update(is_silent=True)
                 for ch_num, meter in ch_meters.items():
                     if (meter.input_state == 'solo_onset' and
                             meter.prev_input_state not in ('solo_onset', 'solo_active')):
@@ -945,6 +983,7 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
             logger.log_song_end()
         if forward_model is not None:
             logger.log_session_summary()
+        _stop_display_path()
         print(f"\n{SEP}")
         print(logger.generate_report())
 
@@ -1370,6 +1409,97 @@ def print_iso_report(result: dict, prior_updates: list) -> None:
             print(f"    {u['instrument']:<16} {u['band']:<12} "
                   f"{u['old']:>+6.2f} → {u['new']:>+6.2f}dB")
     print("━" * 60)
+
+
+# ---------------------------------------------------------------------------
+# Display buffer helpers (IMP-053)
+# ---------------------------------------------------------------------------
+
+BAND_RANGES_DISPLAY = {
+    'sub':       (20,    80),
+    'bass':      (80,    200),
+    'low_mid':   (200,   500),
+    'mid_low':   (500,   1000),
+    'mid_high':  (1000,  2000),
+    'upper_mid': (2000,  4000),
+    'presence':  (4000,  8000),
+    'air':       (8000,  20000),
+}
+
+
+def _compute_band_highlights(mic_result, active_genre) -> dict:
+    """Mic normalized shape deviation from genre target per band."""
+    if not active_genre or not mic_result:
+        return {}
+    from core.mic_analyzer import band_average
+    highlights = {}
+    for band, (f_lo, f_hi) in BAND_RANGES_DISPLAY.items():
+        mic_avg    = band_average(mic_result.normalized_shape_db, (f_lo, f_hi))
+        target_avg = float(active_genre.frequency_targets.get(band, 0.0))
+        highlights[band] = mic_avg - target_avg
+    return highlights
+
+
+def _extract_band_peaks(mic_result) -> dict:
+    """Extract (peak_hz, prominence_db) per band from mic analysis band_levels."""
+    if not mic_result or not mic_result.band_levels:
+        return {}
+    return {
+        band: (lvl.get('peak_hz', 0.0), lvl.get('peak_prominence_db', 0.0))
+        for band, lvl in mic_result.band_levels.items()
+    }
+
+
+def _genre_to_shape_array(genre) -> 'np.ndarray':
+    """Convert genre frequency_targets dict to a 1000-point FREQ_AXIS shape array."""
+    import numpy as np
+    from core.channel_model import FREQ_AXIS
+    band_centers = {
+        'sub': 50, 'bass': 150, 'low_mid': 350, 'mid_low': 750,
+        'mid_high': 1500, 'upper_mid': 3000, 'presence': 6000, 'air': 14000,
+    }
+    items  = sorted(band_centers.items(), key=lambda x: x[1])
+    freqs  = [x[1] for x in items]
+    values = [float(genre.frequency_targets.get(x[0], 0.0)) for x in items]
+    return np.interp(np.log10(FREQ_AXIS), np.log10(freqs), values,
+                     left=values[0], right=values[-1])
+
+
+# ---------------------------------------------------------------------------
+# Display path — 100ms timer loop for fast mic FFT (IMP-053)
+# ---------------------------------------------------------------------------
+
+_display_timer = None
+
+
+def _start_display_path(mic_analyzer, audio_capture, venue_acoustics, display_buffer):
+    """Start the 100ms display-path mic FFT update loop."""
+    global _display_timer
+
+    def _tick():
+        global _display_timer
+        if display_buffer is not None and mic_analyzer is not None:
+            try:
+                fast_shape = mic_analyzer.compute_display_spectrum(
+                    audio_capture, venue_acoustics
+                )
+                display_buffer.update(mic_shape_fast=fast_shape)
+            except Exception:
+                pass
+        _display_timer = threading.Timer(0.1, _tick)
+        _display_timer.daemon = True
+        _display_timer.start()
+
+    _display_timer = threading.Timer(0.1, _tick)
+    _display_timer.daemon = True
+    _display_timer.start()
+
+
+def _stop_display_path():
+    global _display_timer
+    if _display_timer is not None:
+        _display_timer.cancel()
+        _display_timer = None
 
 
 if __name__ == "__main__":

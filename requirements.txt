@@ -6,3 +6,4 @@ pyloudnorm>=0.1.1
 pyyaml>=6.0.1
 librosa>=0.10.0
 soundfile>=0.12.1
+matplotlib>=3.8.0

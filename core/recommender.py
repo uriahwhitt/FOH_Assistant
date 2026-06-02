@@ -60,6 +60,57 @@ BAND_PERCEPTUAL_WEIGHTS = {
 }
 
 
+def _build_band_recommendation_text(band: str,
+                                     direction: str,
+                                     deviation_db: float,
+                                     dominant_channel_label: str,
+                                     mic_band_levels: dict = None,
+                                     mic_spectrum=None) -> str:
+    """Build recommendation text with specific peak frequency from mic analysis.
+
+    Returns a combined two-line string:
+      Line 1: named move + band + deviation + peak description
+      Line 2:   → channel: EQ action at peak_hz, Q advice
+    Falls back to band center when mic data is unavailable or prominence is low.
+    """
+    # Merge recommender and forward-model band ranges so any band name works
+    from core.forward_model import BAND_RANGES as _FM_RANGES
+    _all_ranges = {**BAND_RANGES, **_FM_RANGES}
+    f_lo, f_hi  = _all_ranges.get(band, (200, 2000))
+    band_center = int((f_lo + f_hi) / 2)
+
+    peak_hz    = float(band_center)
+    prominence = 0.0
+
+    if mic_spectrum is not None:
+        from core.mic_analyzer import find_band_peak, FREQ_AXIS
+        peak_hz, prominence = find_band_peak(mic_spectrum, FREQ_AXIS, f_lo, f_hi)
+    elif mic_band_levels and band in mic_band_levels:
+        lvl        = mic_band_levels[band]
+        peak_hz    = float(lvl.get('peak_hz', band_center))
+        prominence = float(lvl.get('peak_prominence_db', 0.0))
+
+    move_dir = 'cut' if direction == 'buildup' else 'boost'
+    named    = _named_move(peak_hz, move_dir, dominant_channel_label or "")
+    prefix   = f"{named} — " if named else ""
+
+    if prominence > 0.5:
+        peak_str = f"peak at {peak_hz:.0f}Hz"
+        if prominence > 2.0:
+            peak_str += f" (+{prominence:.1f}dB above band mean — sharp resonance)"
+    else:
+        peak_str = f"broad energy in {f_lo}–{f_hi}Hz"
+
+    action_hz  = f"{peak_hz:.0f}Hz" if prominence > 0.5 else f"~{band_center}Hz"
+    action_q   = "Q≈2.0" if move_dir == 'cut' else "Q≈1.0"
+    ch_str     = f"{dominant_channel_label}: " if dominant_channel_label else ""
+
+    return (
+        f"{prefix}{band} {deviation_db:+.1f}dB · {peak_str}\n"
+        f"  → {ch_str}EQ {move_dir} at {action_hz}, {action_q}"
+    )
+
+
 def _band_covers_problem(eq_band, lo: int, hi: int) -> bool:
     return lo <= eq_band.freq_hz <= hi
 
@@ -309,6 +360,22 @@ class RecommendationEngine:
             freq_label = f"{lo}-{hi}Hz"
             eq_detail, eq_suggest = self._eq_recommendation(culprit, band, deviation)
 
+            # Build detail with peak-frequency precision when mic analysis available
+            if mic_analysis is not None and not mic_analysis.is_silent:
+                combined = _build_band_recommendation_text(
+                    band=band, direction=direction, deviation_db=deviation,
+                    dominant_channel_label=culprit.label,
+                    mic_spectrum=mic_analysis.normalized_shape_db,
+                )
+                if '\n  → ' in combined:
+                    detail_text, fallback_suggest = combined.split('\n  → ', 1)
+                else:
+                    detail_text      = combined
+                    fallback_suggest = f"Reduce {culprit.label} contribution in {freq_label}"
+            else:
+                detail_text      = f"{band.replace('_', '-')} {direction} around {freq_label} detected"
+                fallback_suggest = f"Reduce {culprit.label} contribution in {freq_label}"
+
             # current_state is built from the culprit object returned this cycle —
             # no possibility of using a stale value from a previous iteration.
             current = {"rms":   f"{culprit.rms_db:.1f}dBFS",
@@ -323,9 +390,9 @@ class RecommendationEngine:
                 channel_num=culprit.channel_num,
                 channel_label=culprit.label,
                 issue=issue,
-                detail=f"{band.replace('_', '-')} {direction} around {freq_label} detected",
+                detail=detail_text,
                 current_state=current,
-                suggestion=eq_suggest or f"Reduce {culprit.label} contribution in {freq_label}",
+                suggestion=eq_suggest or fallback_suggest,
                 genre_id=self._genre.id,
                 timestamp=analysis.timestamp,
                 timestamp_str=ts_str,

@@ -1,7 +1,7 @@
 # FOH Assistant — Forward Mix Model & Enhanced Logging Implementation
 **Document Type:** Claude Code Implementation Reference  
 **Phase:** 2  
-**Last Updated:** 2026-05-12  
+**Last Updated:** 2026-06-02  
 **Depends on:** IMPL_X32_Board_Model.md, IMPL_Mic_Analyzer.md, IMPL_Geometry.md  
 **Produces:** `core/forward_model.py` (new), `core/logger.py` (extended), `models/analysis.py` (new)
 
@@ -883,4 +883,98 @@ insufficient. This data populates the room transfer function for future shows.
 
 ---
 
+## 9. Display Buffer Integration (IMP-051)
+
+The forward model result feeds the `DisplayBuffer` each analysis cycle. This is the bridge between the analysis loop and the live spectrum window.
+
+### Update Points
+
+**Every 500ms analysis cycle** (after `ForwardModelResult` is computed):
+
+```python
+if display_buffer:
+    # Mic deviation from target → band highlights
+    highlights = _compute_band_highlights(mic_result, active_genre)
+    # Peak hz per band → peak markers on display
+    peaks      = _extract_band_peaks(mic_result)
+
+    display_buffer.update(
+        board_rta_shape = normalize_to_shape(fm_result.board_rta_db),
+        mic_shape       = mic_result.normalized_shape_db,
+        band_highlights = highlights,
+        band_peaks      = peaks,
+        lufs            = mic_result.lufs,
+        is_silent       = mic_result.is_silent,
+    )
+```
+
+**On song change** (when `current_song` or `active_genre` changes):
+
+```python
+if display_buffer and active_genre:
+    display_buffer.update(
+        genre_target = _genre_to_shape_array(active_genre),
+        song_name    = current_song.title if current_song else "",
+        genre_name   = active_genre.name if active_genre else "",
+    )
+```
+
+**Every 50ms** (in `/meters/15` OSC handler — fast path):
+
+```python
+if display_buffer:
+    display_buffer.update(
+        board_rta_fast = normalize_to_shape(osc.board_rta_db)
+    )
+```
+
+### `_compute_band_highlights()`
+
+Computes mic normalized shape deviation from genre target per band. This is the only input to highlight colors — board RTA is never used.
+
+```python
+def _compute_band_highlights(mic_result: MicAnalysis,
+                               genre: GenreProfile) -> dict:
+    highlights = {}
+    for band, (f_lo, f_hi) in BAND_RANGES_DISPLAY.items():
+        mic_avg    = band_average(mic_result.normalized_shape_db, (f_lo, f_hi))
+        target_avg = genre.frequency_targets.get(band, 0.0)
+        highlights[band] = mic_avg - target_avg   # positive = excess, negative = deficiency
+    return highlights
+```
+
+### `_extract_band_peaks()`
+
+```python
+def _extract_band_peaks(mic_result: MicAnalysis) -> dict:
+    peaks = {}
+    for band in BAND_RANGES_DISPLAY:
+        if band in mic_result.band_levels:
+            lvl = mic_result.band_levels[band]
+            peaks[band] = (lvl['peak_hz'], lvl.get('peak_prominence_db', 0.0))
+    return peaks
+```
+
+### `_genre_to_shape_array()`
+
+Converts genre YAML `frequency_targets` dict (band_name → dB offset) to a 1000-point FREQ_AXIS array for smooth display rendering. Called once on song change, not every cycle.
+
+```python
+def _genre_to_shape_array(genre: GenreProfile) -> np.ndarray:
+    band_centers = {
+        'sub': 50, 'bass': 150, 'low_mid': 350, 'mid_low': 750,
+        'mid_high': 1500, 'upper_mid': 3000, 'presence': 6000, 'air': 14000,
+    }
+    freqs  = sorted(band_centers.values())
+    values = [genre.frequency_targets.get(b, 0.0)
+              for b in sorted(band_centers, key=lambda x: band_centers[x])]
+    log_centers = np.log10(freqs)
+    log_axis    = np.log10(FREQ_AXIS)
+    return np.interp(log_axis, log_centers, values,
+                     left=values[0], right=values[-1])
+```
+
+---
+
 *Reference documents: IMPL_X32_Board_Model.md, IMPL_Mic_Analyzer.md, IMPL_Geometry.md*
+
