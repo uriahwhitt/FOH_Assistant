@@ -427,20 +427,20 @@ class TestRecommendationEngine:
     # ── LUFS checks ──────────────────────────────────────────────────────────
 
     def test_lufs_hot_generates_recommendation(self):
+        """LUFS no longer generates recommendations — it is a silence gate only (IMP-046b)."""
         engine = self._engine()
-        # Profile target is -18, send -12 (6dB hot — above 2dB threshold)
         room = _make_room(lufs=-12.0)
         recs = engine.evaluate(room, self._channels())
-        lufs_recs = [r for r in recs if r.issue == "lufs_hot"]
-        assert len(lufs_recs) == 1
-        assert "hot" in lufs_recs[0].detail
+        lufs_recs = [r for r in recs if r.issue in ("lufs_hot", "lufs_low")]
+        assert lufs_recs == [], "LUFS recs removed in IMP-046b — mic position is not a reliable level indicator"
 
     def test_lufs_low_generates_recommendation(self):
+        """LUFS no longer generates recommendations — it is a silence gate only (IMP-046b)."""
         engine = self._engine()
-        room = _make_room(lufs=-25.0)  # 7dB below -18 target
+        room = _make_room(lufs=-25.0)
         recs = engine.evaluate(room, self._channels())
-        lufs_recs = [r for r in recs if r.issue == "lufs_low"]
-        assert len(lufs_recs) == 1
+        lufs_recs = [r for r in recs if r.issue in ("lufs_hot", "lufs_low")]
+        assert lufs_recs == []
 
     def test_lufs_in_range_no_recommendation(self):
         engine = self._engine()
@@ -451,7 +451,9 @@ class TestRecommendationEngine:
 
     def test_recommendation_has_all_required_fields(self):
         engine = self._engine()
-        room = _make_room(lufs=-12.0)
+        bands = {b: -30.0 for b in BAND_NAMES}
+        bands["sub_bass"] = 0.0   # +30dB above median → triggers sub_bass_buildup on Kick
+        room = _make_room(lufs=-18.0, bands=bands)
         recs = engine.evaluate(room, self._channels())
         assert len(recs) > 0
         rec = recs[0]
@@ -465,11 +467,12 @@ class TestRecommendationEngine:
 
     def test_format_terminal_contains_detail(self):
         engine = self._engine()
-        room = _make_room(lufs=-12.0)
+        bands = {b: -30.0 for b in BAND_NAMES}
+        bands["sub_bass"] = 0.0
+        room = _make_room(lufs=-18.0, bands=bands)
         recs = engine.evaluate(room, self._channels())
         assert len(recs) > 0
         text = recs[0].format_terminal()
-        assert "LUFS" in text or "lufs" in text.lower()
         assert "Suggest:" in text
 
     # ── Baseline drift ────────────────────────────────────────────────────────
@@ -551,11 +554,13 @@ class TestRecommendationEngine:
         new_profile.id = "AOR"
         new_profile.target_lufs = -20.0
         engine.set_genre(new_profile)
-        room = _make_room(lufs=-12.0)  # 8dB hot vs -20 target
+        assert engine._genre.id == "AOR"
+        assert engine._genre.target_lufs == -20.0
+        # Verify no LUFS recommendations regardless of genre
+        room = _make_room(lufs=-12.0)
         recs = engine.evaluate(room, self._channels())
-        lufs_recs = [r for r in recs if r.issue == "lufs_hot"]
-        assert len(lufs_recs) == 1
-        assert lufs_recs[0].genre_id == "AOR"
+        lufs_recs = [r for r in recs if r.issue in ("lufs_hot", "lufs_low")]
+        assert lufs_recs == []
 
     # ── Fix 1: Silence guard (threshold -50.0 dBFS) ──────────────────────────
 
@@ -591,16 +596,16 @@ class TestRecommendationEngine:
         assert lufs_recs == []
 
     def test_silence_guard_just_above_threshold_fires_rec(self):
+        """rms_db just above -50 → silence gate not active (analysis proceeds)."""
         engine = self._engine()
         room = RoomAnalysis(
-            lufs=-12.0, rms_db=-49.0,   # one dB above -50 guard, 6dB hot
+            lufs=-12.0, rms_db=-49.0,
             bands={b: -30.0 for b in BAND_NAMES},
             band_delta={b: 0.0 for b in BAND_NAMES},
             lufs_delta=0.0, timestamp=time.time(),
         )
-        recs = engine.evaluate(room, self._channels())
-        lufs_recs = [r for r in recs if r.issue == "lufs_hot"]
-        assert len(lufs_recs) == 1
+        engine.evaluate(room, self._channels())
+        assert engine._in_silence is False
 
     # ── Fix 2: Channel RMS guard in _find_culprit ─────────────────────────────
 
@@ -654,34 +659,30 @@ class TestRecommendationEngine:
         )
 
     def test_global_lufs_cooldown_suppresses_second_call(self):
+        """LUFS never generates recommendations — no cooldown needed (IMP-046b)."""
         engine = self._engine()
         now = time.time()
-
         recs1 = engine.evaluate(self._room_at(now, lufs=-12.0), self._channels())
-        assert any(r.issue == "lufs_hot" for r in recs1), "First call should fire"
-
-        # 1 second later — still within 60s cooldown
+        assert not any(r.issue == "lufs_hot" for r in recs1), "LUFS recs removed in IMP-046b"
         recs2 = engine.evaluate(self._room_at(now + 1.0, lufs=-12.0), self._channels())
-        assert not any(r.issue == "lufs_hot" for r in recs2), "Should be suppressed within 60s"
+        assert not any(r.issue == "lufs_hot" for r in recs2)
 
     def test_global_lufs_cooldown_expires_after_60s(self):
+        """LUFS never generates recommendations regardless of timing (IMP-046b)."""
         engine = self._engine()
         now = time.time()
-
         engine.evaluate(self._room_at(now, lufs=-12.0), self._channels())
-
-        # 61 seconds later — cooldown expired
         recs = engine.evaluate(self._room_at(now + 61.0, lufs=-12.0), self._channels())
-        assert any(r.issue == "lufs_hot" for r in recs), "Should fire again after cooldown"
+        assert not any(r.issue == "lufs_hot" for r in recs)
 
     def test_global_lufs_cooldown_independent_of_channel_cooldown(self):
-        # Fires once, then 61s later fires again — channel cooldowns don't interfere
+        """LUFS never generates recommendations (IMP-046b)."""
         engine = self._engine()
         now = time.time()
         engine.evaluate(self._room_at(now, lufs=-12.0), self._channels())
         recs = engine.evaluate(self._room_at(now + 61.0, lufs=-12.0), self._channels())
         lufs_recs = [r for r in recs if r.issue == "lufs_hot"]
-        assert len(lufs_recs) == 1
+        assert len(lufs_recs) == 0
 
     # ── Fix 4: EQ band selection within 2 octaves ─────────────────────────────
 
@@ -796,12 +797,13 @@ class TestTransitionGracePeriod:
         assert len(drift_recs) == 1, "Drift alerts must still fire during transition"
 
     def test_set_transition_false_restores_lufs_recs(self):
+        """LUFS never fires regardless of transition state (IMP-046b)."""
         engine = self._engine()
         engine.set_transition(True)
         engine.set_transition(False)
         room = _make_room(lufs=-12.0)
         recs = engine.evaluate(room, {1: _make_channel()})
-        assert any(r.issue == "lufs_hot" for r in recs)
+        assert not any(r.issue in ("lufs_hot", "lufs_low") for r in recs)
 
     def test_set_transition_false_restores_band_recs(self):
         engine = self._engine()
@@ -1408,34 +1410,43 @@ class TestStabilityGuard:
     # ── End-to-end: stability guard suppresses repeat static recommendations ──
 
     def test_stability_guard_reduces_repeat_recs(self):
+        """After 3 consecutive fires of the same band issue, cooldown doubles."""
         engine = self._engine()
-        # Simulate 3 fires by directly advancing state
-        ch, issue = 1, "lufs_hot"   # Use global rec for simplicity
+        bands = {b: -30.0 for b in BAND_NAMES}
+        bands["sub_bass"] = 0.0   # persistent sub_bass buildup → fires on Kick
         now = time.time()
 
-        # First three fires at base cooldown intervals
+        # Fire 3 times at base-cooldown (60s) intervals — all should fire
         for i in range(3):
             room = RoomAnalysis(
-                lufs=-12.0, rms_db=-20.0,
-                bands={b: -30.0 for b in BAND_NAMES},
+                lufs=-18.0, rms_db=-20.0, bands=bands,
                 band_delta={b: 0.0 for b in BAND_NAMES},
                 lufs_delta=0.0, timestamp=now + i * 60.0,
             )
             recs = engine.evaluate(room, {1: _make_channel(num=1)})
-            assert any(r.issue == "lufs_hot" for r in recs), f"Expected fire on cycle {i+1}"
+            assert any(r.issue == "sub_bass_buildup" for r in recs), \
+                f"Expected sub_bass_buildup to fire on cycle {i+1}"
 
-        # Note: LUFS uses _last_global_rec not the stability guard — verify
-        # the stability guard doesn't accidentally block it
-        room4 = RoomAnalysis(
-            lufs=-12.0, rms_db=-20.0,
-            bands={b: -30.0 for b in BAND_NAMES},
+        # After 3 fires, stability guard doubles cooldown to 120s.
+        # T+180 is only 60s after the 3rd fire at T+120 → should NOT fire yet.
+        room_early = RoomAnalysis(
+            lufs=-18.0, rms_db=-20.0, bands=bands,
             band_delta={b: 0.0 for b in BAND_NAMES},
-            lufs_delta=0.0, timestamp=now + 3 * 60.0,
+            lufs_delta=0.0, timestamp=now + 180.0,
         )
-        recs4 = engine.evaluate(room4, {1: _make_channel(num=1)})
-        # LUFS uses its own cooldown — 3rd fire was at T+120, T+180 > T+120+60, so it fires
-        assert any(r.issue == "lufs_hot" for r in recs4), \
-            "LUFS uses its own cooldown track, not the band stability guard"
+        recs_early = engine.evaluate(room_early, {1: _make_channel(num=1)})
+        assert not any(r.issue == "sub_bass_buildup" for r in recs_early), \
+            "Stability guard should suppress within doubled 120s cooldown"
+
+        # T+241 is >120s after 3rd fire at T+120 → should fire again
+        room_late = RoomAnalysis(
+            lufs=-18.0, rms_db=-20.0, bands=bands,
+            band_delta={b: 0.0 for b in BAND_NAMES},
+            lufs_delta=0.0, timestamp=now + 241.0,
+        )
+        recs_late = engine.evaluate(room_late, {1: _make_channel(num=1)})
+        assert any(r.issue == "sub_bass_buildup" for r in recs_late), \
+            "Should fire again after doubled cooldown expires"
 
 
 # ===========================================================================
@@ -1454,7 +1465,7 @@ def _fake_devices(entries: list[dict]) -> list[dict]:
 class TestAudioCaptureInit:
     def test_defaults(self):
         cap = AudioCapture()
-        assert cap._match == "DJI"
+        assert cap._match == ""     # Phase 2: empty = priority detection (PreSonus > DJI)
         assert cap._preferred_sr == 48000
         assert cap._forced_index is None
         assert cap.sample_rate == 48000
@@ -1570,7 +1581,7 @@ class TestAudioCaptureListDevices:
         ])
         cap = AudioCapture(device_name_match=self.CABLE)
         result = cap.list_devices()
-        assert "← use this" in result
+        assert "<--" in result   # Phase 2: marker format changed to "<-- label"
         assert self.CABLE in result
 
     @patch("core.audio_capture.sd.query_devices")
@@ -1590,7 +1601,7 @@ class TestAudioCaptureListDevices:
         ])
         cap = AudioCapture(device_name_match=self.CABLE)
         result = cap.list_devices()
-        assert result.startswith("Available audio input devices:")
+        assert "Available audio input devices" in result
 
 
 class TestAudioCaptureStart:
@@ -1949,7 +1960,7 @@ class TestTransitionGraceIMP020:
 
         assert engine._in_transition is True
         assert before + 8.0 <= engine._transition_end <= after + 8.0
-        # Verify it suppresses LUFS
+        # Verify band recs are suppressed during transition
         room = _make_room(lufs=-12.0)
         recs = engine.evaluate(room, {1: _make_channel()})
         assert not any(r.issue in ("lufs_hot", "lufs_low") for r in recs)
@@ -2099,28 +2110,28 @@ class TestOSCClientHPFIMP022:
             channel_map={1: {"label": "Kick", "type": "instrument"}},
         )
 
-    def test_preamp_hpon_1_maps_to_hpf_on_true(self):
-        """preamp_hpon=1 → hpf_on=True in build_channel_states()."""
+    def test_hpf_freq_above_22hz_maps_to_hpf_on_true(self):
+        """hpf_freq > 22Hz → hpf_on=True, regardless of phantom power (hpon)."""
         client = self._client()
         with client._state_lock:
             client._state[1] = {
                 "fader": 0.75, "mute": 1,
-                "preamp_hpon": 1,
-                "preamp_hpf": 0.3,
+                "preamp_hpon": 0,   # phantom OFF — must NOT affect hpf_on
+                "preamp_hpf": 0.3,  # ≈158Hz > 22Hz → HPF engaged
                 "preamp_hpslope": 1,
                 "preamp_gain": 0.0,
             }
         channels = client.build_channel_states()
         assert channels[1].hpf_on is True
 
-    def test_preamp_hpon_0_maps_to_hpf_on_false(self):
-        """preamp_hpon=0 → hpf_on=False in build_channel_states()."""
+    def test_hpf_freq_at_minimum_maps_to_hpf_on_false(self):
+        """hpf_freq at 20Hz (X32 minimum) → hpf_on=False (HPF not engaged)."""
         client = self._client()
         with client._state_lock:
             client._state[1] = {
                 "fader": 0.75, "mute": 1,
-                "preamp_hpon": 0,
-                "preamp_hpf": 0.3,
+                "preamp_hpon": 1,    # phantom ON — must NOT affect hpf_on
+                "preamp_hpf": 0.0,  # 20Hz = X32 minimum = HPF off
                 "preamp_hpslope": 1,
                 "preamp_gain": 0.0,
             }

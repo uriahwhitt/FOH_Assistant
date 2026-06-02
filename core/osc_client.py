@@ -19,10 +19,11 @@ import threading
 import time
 from typing import Callable, Optional
 
+import numpy as np
 from pythonosc import dispatcher, osc_server
 from pythonosc.osc_message_builder import OscMessageBuilder
 
-from models.channel import ChannelState, EQBand
+from models.channel import ChannelState, ChannelConfig, ChannelMeterState, EQBand
 
 
 # Compressor ratio enum index → actual ratio
@@ -30,7 +31,32 @@ COMP_RATIO_MAP = {0: 1.1, 1: 1.3, 2: 1.5, 3: 2.0, 4: 2.5, 5: 3.0,
                   6: 4.0, 7: 5.0, 8: 7.0, 9: 10.0, 10: 20.0, 11: 100.0}
 
 METERS_ALIAS = "/foh_meters"
+RTA_ALIAS      = "/foh_rta"
+
+RTA_FREQS_HZ = [
+    20, 21, 22, 24, 26, 28, 30, 32, 34, 36, 39, 42, 45, 48, 52, 55, 59,
+    63, 68, 73, 78, 84, 90, 96, 103, 110, 118, 127, 136, 146, 156, 167,
+    179, 192, 206, 221, 237, 254, 272, 292, 313, 335, 359, 385, 412, 442,
+    474, 508, 544, 583, 625, 670, 718, 769, 825, 884, 947, 1020, 1090,
+    1170, 1250, 1340, 1440, 1540, 1650, 1770, 1890, 2030, 2180, 2330,
+    2500, 2680, 2870, 3080, 3300, 3540, 3790, 4060, 4350, 4670, 5000,
+    5360, 5740, 6160, 6600, 7070, 7580, 8120, 8710, 9330, 10000, 10720,
+    11490, 12310, 13200, 14140, 15160, 16250, 17410, 18660
+]
+
 KEEPALIVE_INTERVAL = 8.0        # seconds — X32 times out after 10s
+
+# RTA source index constants (/-action/setrtasrc)
+MAIN_LR_RTA_INDEX = 70          # Main L/R — default always-on monitoring position
+
+
+def channel_to_rta_index(channel_num: int) -> int:
+    """Convert 1-based channel number to post-EQ setrtasrc index.
+
+    Ch01 post-EQ = 98, Ch32 post-EQ = 129.
+    Main L/R = 70 (use as default/return position).
+    """
+    return (channel_num - 1) + 98
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +117,25 @@ def parse_meters_1(blob_data: bytes) -> dict:
     }
 
 
+def parse_meters_15(blob_data: bytes) -> np.ndarray:
+    """Parse /meters/15 RTA blob. Returns 100-band dBFS array."""
+    num_ints   = struct.unpack_from("<I", blob_data, 4)[0]
+    raw_shorts = struct.unpack_from(f"<{num_ints}h", blob_data, 8)
+    return np.array([s / 256.0 for s in raw_shorts[:100]])
+
+
+def parse_meters_6(blob_data: bytes) -> dict:
+    """Parse /meters/6 single-channel strip meter."""
+    num_floats = struct.unpack_from("<I", blob_data, 4)[0]
+    floats = struct.unpack_from(f"<{num_floats}f", blob_data, 8)
+    return {
+        "pre_fade":  floats[0] if len(floats) > 0 else 0.0,
+        "gate_gr":   floats[1] if len(floats) > 1 else 1.0,
+        "dyn_gr":    floats[2] if len(floats) > 2 else 1.0,
+        "post_fade": floats[3] if len(floats) > 3 else 0.0,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Debug server — prints raw bytes for every received packet
 # ---------------------------------------------------------------------------
@@ -148,6 +193,15 @@ class X32OSCClient:
 
         self._on_adjustment: Optional[Callable] = None  # callback for detected changes
 
+        # Phase 2 state
+        self._board_rta_db: Optional[np.ndarray] = None
+        self._channel_configs: dict[int, ChannelConfig] = {}
+        self._channel_meters: dict[int, ChannelMeterState] = {}
+        self._config_dirty: set[int] = set()
+        self._meter_gate_gr: list[float] = [1.0] * 32
+        self._meter_dyn_gr:  list[float] = [1.0] * 32
+        self._on_config_change = None
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -167,6 +221,7 @@ class X32OSCClient:
         self._running = False
         try:
             self._send("/unsubscribe", [METERS_ALIAS])
+            self._send("/unsubscribe", [RTA_ALIAS])
         except Exception:
             pass
         if self._server:
@@ -184,17 +239,36 @@ class X32OSCClient:
     # ------------------------------------------------------------------
 
     def snapshot_all_channels(self) -> dict[int, ChannelState]:
-        """Read full state for all mapped channels via /node bulk requests.
-        Blocks until responses received or timeout."""
+        """Read full state for all mapped channels.
+
+        Sends both /node bulk requests (real X32 / Python sim) AND individual
+        parameter queries (Maillot emulator and other /node-less implementations).
+        Whichever responds first populates the state.
+        """
         for ch_num in self._channel_map:
             ch = f"{ch_num:02d}"
+            # Bulk read — real X32 and Python simulator
             self._send("/node", [f"ch/{ch}/mix"])
             self._send("/node", [f"ch/{ch}/eq"])
             self._send("/node", [f"ch/{ch}/dyn"])
             self._send("/node", [f"ch/{ch}/gate"])
             self._send("/node", [f"ch/{ch}/preamp"])
-            self._send("/node", [f"ch/{ch}/config"])  # pulls name, icon, color, source
-        time.sleep(0.3)     # give X32 time to reply
+            self._send("/node", [f"ch/{ch}/config"])
+            # Individual param queries — Maillot emulator fallback.
+            # Paced one channel at a time to avoid overwhelming emulator response queue.
+            for addr in [
+                f"ch/{ch}/mix/fader",      f"ch/{ch}/mix/on",
+                f"ch/{ch}/eq/on",
+                f"ch/{ch}/eq/1/f",  f"ch/{ch}/eq/1/g",
+                f"ch/{ch}/eq/2/f",  f"ch/{ch}/eq/2/g",
+                f"ch/{ch}/eq/3/f",  f"ch/{ch}/eq/3/g",
+                f"ch/{ch}/eq/4/f",  f"ch/{ch}/eq/4/g",
+                f"ch/{ch}/preamp/hpf",     f"ch/{ch}/preamp/hpslope",
+                f"ch/{ch}/dyn/on",         f"ch/{ch}/gate/on",
+            ]:
+                self._send(f"/{addr}", [])
+            time.sleep(0.02)   # 20ms per channel lets emulator process & respond
+        time.sleep(0.3)   # final settle
         return self.build_channel_states()
 
     def build_channel_states(self) -> dict[int, ChannelState]:
@@ -246,13 +320,104 @@ class X32OSCClient:
                 paired_channel=ch_cfg.get("paired_channel"),
                 role=ch_cfg.get("role"),
                 priority=ch_cfg.get("priority"),
-                hpf_on=bool(raw.get("preamp_hpon", 0)),
+                hpf_on=eq_float_to_hz(raw.get("preamp_hpf", 0.0)) > 22.0,
                 hpf_freq_hz=eq_float_to_hz(raw.get("preamp_hpf", 0.3)),
                 hpf_slope=raw.get("preamp_hpslope", 1),
                 input_gain_db=raw.get("preamp_gain", 0.0),
                 x32_name=raw.get("x32_name", ""),
             )
         return result
+
+    def build_channel_configs(self) -> dict:
+        """Build ChannelConfig objects from current cached raw state."""
+        from core.channel_model import compute_transfer_curves, hpslope_int_to_db_oct, COMP_RATIO_MAP as _RATIO_MAP
+        import time as _time
+        now = _time.time()
+        result = {}
+        with self._state_lock:
+            state_snap = {k: v.copy() for k, v in self._state.items() if isinstance(k, int)}
+        for ch_num, ch_cfg in self._channel_map.items():
+            raw = state_snap.get(ch_num, {})
+            label = ch_cfg.get('label', f'CH{ch_num:02d}') if isinstance(ch_cfg, dict) else str(ch_cfg)
+            instr_type = ch_cfg.get('instrument_type', 'guitar') if isinstance(ch_cfg, dict) else 'guitar'
+            hpf_freq_hz = eq_float_to_hz(raw.get('preamp_hpf', 0.0))
+            hpf_enabled = hpf_freq_hz > 22.0
+            fader_db = fader_float_to_db(raw.get('fader', 0.75))
+            eq_enabled = bool(raw.get('eq_on', 1))
+            eq_bands_list = []
+            for b in range(1, 5):
+                eq_bands_list.append(EQBand(
+                    band_num=b, type=raw.get(f'eq_{b}_type', 2),
+                    freq_hz=eq_float_to_hz(raw.get(f'eq_{b}_freq', 0.5)),
+                    gain_db=raw.get(f'eq_{b}_gain', 0.0),
+                    q=max(raw.get(f'eq_{b}_q', 1.0), 0.1),
+                ))
+            comp_ratio_idx = raw.get('comp_ratio', 3)
+            comp_ratio = _RATIO_MAP.get(comp_ratio_idx, 2.0)
+            cfg = ChannelConfig(
+                channel_num=ch_num, label=label, instrument_type=instr_type,
+                trim_db=raw.get('preamp_gain', 0.0),
+                polarity_inverted=bool(raw.get('preamp_invert', 0)),
+                hpf_enabled=hpf_enabled, hpf_freq_hz=hpf_freq_hz,
+                hpf_slope_db_oct=hpslope_int_to_db_oct(raw.get('preamp_hpslope', 0)),
+                eq_enabled=eq_enabled, eq_bands=eq_bands_list,
+                fader_db=fader_db, muted=(raw.get('mute', 1) == 0), pan=raw.get('mix_pan', 0.0),
+                comp_enabled=bool(raw.get('comp_on', 0)), comp_threshold_db=raw.get('comp_thr', -20.0),
+                comp_ratio=comp_ratio, comp_attack_ms=raw.get('comp_attack', 10.0),
+                comp_release_ms=raw.get('comp_release', 100.0), comp_makeup_db=raw.get('comp_mgain', 0.0),
+                gate_enabled=bool(raw.get('gate_on', 0)), gate_threshold_db=raw.get('gate_thr', -40.0),
+                gate_range_db=raw.get('gate_range', 20.0), last_config_update=now,
+            )
+            compute_transfer_curves(cfg)
+            result[ch_num] = cfg
+        with self._state_lock:
+            self._channel_configs = result
+            self._config_dirty.clear()
+        return result
+
+    def update_dirty_configs(self) -> set:
+        """Recompute transfer curves for dirty channels."""
+        with self._state_lock:
+            dirty = set(self._config_dirty)
+            self._config_dirty.clear()
+        if not dirty:
+            return set()
+        self.build_channel_configs()
+        return dirty
+
+    def request_meters_6(self, channel_id_0based: int) -> None:
+        self._send('/meters', [f'/meters/6', channel_id_0based])
+
+    @property
+    def board_rta_db(self) -> 'np.ndarray':
+        import numpy as np
+        with self._state_lock:
+            if self._board_rta_db is not None:
+                return self._board_rta_db.copy()
+        return np.full(100, -90.0)
+
+    @property
+    def channel_configs(self) -> dict:
+        with self._state_lock:
+            return dict(self._channel_configs)
+
+    @property
+    def channel_meters(self) -> dict:
+        with self._state_lock:
+            return dict(self._channel_meters)
+
+    def set_rta_source(self, source_index: int) -> None:
+        """Switch the X32 RTA analyzer (/meters/15) to a specific source.
+
+        source_index: 0–31 = Ch01–32 pre-EQ, 98–129 = Ch01–32 post-EQ,
+                      70 = Main L/R (default monitoring position).
+        Always call set_rta_source(MAIN_LR_RTA_INDEX) after investigations.
+        """
+        self._send("/-action/setrtasrc", [source_index])
+
+    def set_rta_position(self, post_eq: bool = True) -> None:
+        """Set RTA tap point to pre-EQ (0) or post-EQ (1). Always use post-EQ."""
+        self._send("/-prefs/rta/pos", [1 if post_eq else 0])
 
     def read_main_fader(self) -> float:
         """Return current main LR fader in dB."""
@@ -290,6 +455,7 @@ class X32OSCClient:
         disp.map("/ch/*", self._handle_channel_param)
         disp.map("/main/*", self._handle_main_param)
         disp.map(METERS_ALIAS, self._handle_meters)
+        disp.map(RTA_ALIAS, self._handle_rta)
         disp.set_default_handler(self._handle_default)
 
         server_class = _DebugOSCUDPServer if self._debug else osc_server.ThreadingOSCUDPServer
@@ -319,6 +485,7 @@ class X32OSCClient:
                     break
                 self._send("/xremote", [])
                 self._send("/renew", [METERS_ALIAS])
+                self._send("/renew", [RTA_ALIAS])
 
         self._keepalive_thread = threading.Thread(target=loop, daemon=True)
         self._keepalive_thread.start()
@@ -349,6 +516,10 @@ class X32OSCClient:
                         ch = f"{ch_num:02d}"
                         self._send("/node", [f"ch/{ch}/mix"])
                         self._send("/node", [f"ch/{ch}/eq"])
+                        # Individual queries for emulators without /node support
+                        self._send(f"/ch/{ch}/mix/fader", [])
+                        self._send(f"/ch/{ch}/mix/on", [])
+                        self._send(f"/ch/{ch}/eq/on", [])
 
         self._poll_thread = threading.Thread(target=loop, daemon=True)
         self._poll_thread.start()
@@ -356,6 +527,7 @@ class X32OSCClient:
     def _subscribe_meters(self) -> None:
         # /batchsubscribe alias meter_cmd arg1 arg2 time_factor
         self._send("/batchsubscribe", [METERS_ALIAS, "/meters/1", 0, 0, 1])
+        self._send("/batchsubscribe", [RTA_ALIAS,    "/meters/15", 1, 0, 1])
 
     def _request_info(self, timeout: float) -> str:
         """Send /info and wait for response. Returns info string."""
@@ -399,10 +571,13 @@ class X32OSCClient:
                 if section == "mix" and len(values) >= 2:
                     raw["fader"] = float(values[0])
                     raw["mute"] = int(values[1])
+                    if len(values) >= 3:
+                        raw["mix_pan"] = float(values[2])
                 elif section == "eq":
-                    # All 4 bands: band1_type band1_f band1_g band1_q band2_...
+                    # eq_on at index 0, then 4 bands: band1_type band1_f band1_g band1_q band2_...
+                    raw["eq_on"] = int(values[0])
                     for b in range(4):
-                        offset = b * 4
+                        offset = 1 + b * 4
                         if offset + 3 < len(values):
                             raw[f"eq_{b+1}_type"] = int(values[offset])
                             raw[f"eq_{b+1}_freq"] = float(values[offset + 1])
@@ -412,12 +587,19 @@ class X32OSCClient:
                     raw["comp_on"] = int(values[0])
                     raw["comp_thr"] = float(values[1])
                     raw["comp_ratio"] = int(values[2])
+                    if len(values) >= 7:
+                        raw["comp_attack"]  = float(values[4])
+                        raw["comp_release"] = float(values[5])
+                        raw["comp_mgain"]   = float(values[6])
                 elif section == "gate" and len(values) >= 2:
                     raw["gate_on"] = int(values[0])
                     raw["gate_thr"] = float(values[1])
+                    if len(values) >= 3:
+                        raw["gate_range"] = float(values[2])
                 elif section == "preamp" and len(values) >= 5:
                     # X32 preamp node field order: gain, invert, hpon, hpf, hpslope, lofilt
                     raw["preamp_gain"] = float(values[0])
+                    raw["preamp_invert"] = int(values[1])
                     raw["preamp_hpon"] = int(values[2])
                     raw["preamp_hpf"] = float(values[3])
                     raw["preamp_hpslope"] = int(values[4])
@@ -476,6 +658,13 @@ class X32OSCClient:
                 raw["preamp_hpf"] = float(val)
             elif param_path == "preamp/hpslope":
                 raw["preamp_hpslope"] = int(val)
+            elif param_path == "preamp/invert":
+                raw["preamp_invert"] = int(val)
+            elif param_path == "eq/on":
+                raw["eq_on"] = int(val)
+            is_config_param = parts[2] in ('eq', 'preamp') or param_path in ('mix/fader', 'mix/on')
+            if is_config_param:
+                self._config_dirty.add(ch_num)
         self._last_push_time[ch_num] = time.time()
 
     def _handle_main_param(self, address: str, *args) -> None:
@@ -495,6 +684,51 @@ class X32OSCClient:
             parsed = parse_meters_1(bytes(blob))
             with self._state_lock:
                 self._meter_rms = parsed["channel_rms"]
+                import time as _time
+                now_ms = _time.time() * 1000.0
+                self._meter_gate_gr  = parsed["gate_gr"]
+                self._meter_dyn_gr   = parsed["dynamics_gr"]
+                for ch_num in self._channel_map:
+                    idx = ch_num - 1
+                    if idx < 0 or idx >= 32:
+                        continue
+                    rms_lin  = self._meter_rms[idx]
+                    gate_lin = self._meter_gate_gr[idx]
+                    dyn_lin  = self._meter_dyn_gr[idx]
+                    rms_db   = linear_to_dbfs(rms_lin)
+                    gate_db  = min(0.0, linear_to_dbfs(gate_lin)) if gate_lin < 1.0 else 0.0
+                    dyn_db   = min(0.0, linear_to_dbfs(dyn_lin))  if dyn_lin < 1.0 else 0.0
+                    prev_state = 'normal'
+                    prev_rms   = -90.0
+                    if ch_num in self._channel_meters:
+                        prev = self._channel_meters[ch_num]
+                        prev_rms   = prev.input_rms_db
+                        prev_state = prev.input_state
+                    cfg = self._channel_configs.get(ch_num)
+                    fader_db = cfg.fader_db if cfg else fader_float_to_db(
+                        self._state.get(ch_num, {}).get('fader', 0.75))
+                    post_fade_db = rms_db + fader_db if rms_db > -88 else -90.0
+                    meter = ChannelMeterState(
+                        channel_num=ch_num, timestamp_ms=now_ms,
+                        input_rms_linear=rms_lin, gate_gr_linear=gate_lin, dyn_gr_linear=dyn_lin,
+                        input_rms_db=rms_db, gate_gr_db=gate_db, dyn_gr_db=dyn_db,
+                        post_fade_db=post_fade_db, effective_gr_db=gate_db + dyn_db,
+                        rms_delta_db=rms_db - prev_rms, input_state=prev_state, prev_input_state=prev_state,
+                    )
+                    self._channel_meters[ch_num] = meter
+        except Exception:
+            pass
+
+    def _handle_rta(self, address: str, *args) -> None:
+        if not args:
+            return
+        blob = args[0]
+        if not isinstance(blob, (bytes, bytearray)) or len(blob) < 12:
+            return
+        try:
+            rta = parse_meters_15(bytes(blob))
+            with self._state_lock:
+                self._board_rta_db = rta
         except Exception:
             pass
 

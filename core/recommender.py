@@ -118,8 +118,10 @@ class RecommendationEngine:
 
         # Per-channel last recommendation timestamp
         self._last_rec: dict[int, float] = {}
-        # Global LUFS recommendation cooldown (no channel number to key on)
-        self._last_global_rec: float = 0.0
+
+        # Silence gate state — True when room audio is below threshold.
+        # Set by _check_lufs(); gates band analysis in evaluate().
+        self._in_silence: bool = False
 
         # Per-channel fader reference for rate-of-change detection (sliding window).
         # Reference only advances when the window expires OR suppression fires —
@@ -199,7 +201,8 @@ class RecommendationEngine:
             del self._last_issue_rec[k]
 
     def evaluate(self, analysis: RoomAnalysis,
-                 channels: dict[int, ChannelState]) -> list[Recommendation]:
+                 channels: dict[int, ChannelState],
+                 mic_analysis=None) -> list[Recommendation]:
         """Run one recommendation cycle. Returns list of new recommendations."""
         # Auto-expire transition grace period using wall time
         if self._in_transition and time.time() >= self._transition_end:
@@ -211,16 +214,16 @@ class RecommendationEngine:
 
         self._update_suppression(channels, now)
 
-        # 1. Overall LUFS vs genre target
-        lufs_rec = self._check_lufs(analysis, channels, ts_str)
-        if lufs_rec:
-            recs.append(lufs_rec)
+        # Silence gate: update _in_silence; no recommendations from LUFS itself
+        self._check_lufs(analysis)
 
-        # 2. Per-band frequency deviation
-        band_recs = self._check_bands(analysis, channels, ts_str)
-        recs.extend(band_recs)
+        if not self._in_silence:
+            # Per-band frequency deviation (requires active audio)
+            band_recs = self._check_bands(analysis, channels, ts_str,
+                                          mic_analysis=mic_analysis)
+            recs.extend(band_recs)
 
-        # 3. Baseline drift
+        # Baseline drift fires even in silence — fader moves are always noteworthy
         if self._baseline:
             drift_recs = self._check_baseline_drift(channels, ts_str)
             recs.extend(drift_recs)
@@ -231,51 +234,20 @@ class RecommendationEngine:
     # Internal — checks
     # ------------------------------------------------------------------
 
-    def _check_lufs(self, analysis: RoomAnalysis,
-                    channels: dict[int, ChannelState],
-                    ts_str: str) -> Optional[Recommendation]:
-        if analysis.rms_db < -50.0:
-            return None
-        if self._in_transition:
-            return None
-        threshold = self._thresholds.get("lufs_trigger_db", 2.0)
-        deviation = analysis.lufs - self._genre.target_lufs
-        if abs(deviation) <= threshold:
-            return None
+    def _check_lufs(self, analysis: RoomAnalysis) -> None:
+        """Silence gate only — sets _in_silence flag.
 
-        cooldown = self._thresholds.get("recommendation_cooldown_s", 60.0)
-        if (analysis.timestamp - self._last_global_rec) < cooldown:
-            return None
-
-        direction = "hot" if deviation > 0 else "low"
-        top = self._top_channels_by_rms(channels, n=2)
-
-        if deviation > 0:
-            suggest = (f"Pull main bus -{abs(deviation):.1f}dB "
-                       f"or trim {' and '.join(c.label for c in top[:2])}")
-        else:
-            suggest = "Main bus may be conservative — check fader levels"
-
-        self._last_global_rec = analysis.timestamp
-        return Recommendation(
-            channel_num=None,
-            channel_label=None,
-            issue="lufs_hot" if deviation > 0 else "lufs_low",
-            detail=(f"Integrated LUFS {abs(deviation):.1f}dB {direction} vs "
-                    f"{self._genre.id} target ({self._genre.target_lufs:.0f} LUFS)"),
-            current_state={"lufs": f"{analysis.lufs:.1f}", "target": str(self._genre.target_lufs)},
-            suggestion=suggest,
-            genre_id=self._genre.id,
-            timestamp=analysis.timestamp,
-            timestamp_str=ts_str,
-        )
+        LUFS is mic-position-dependent and cannot reliably indicate overall
+        level (a closer mic always reads higher regardless of mix quality).
+        No recommendations are generated from LUFS. LUFS is logged separately
+        for post-show analysis via logger.record_lufs().
+        """
+        self._in_silence = analysis.rms_db < -50.0
 
     def _check_bands(self, analysis: RoomAnalysis,
                      channels: dict[int, ChannelState],
-                     ts_str: str) -> list[Recommendation]:
-        if analysis.rms_db < -50.0:
-            self._prev_active_issues = set()
-            return []
+                     ts_str: str,
+                     mic_analysis=None) -> list[Recommendation]:
         if self._in_transition:
             # Clear active issues so we don't falsely reset stability when
             # transition ends — those issues were paused, not resolved.
@@ -286,17 +258,32 @@ class RecommendationEngine:
         now = analysis.timestamp
         current_active: set[tuple[int, str]] = set()
 
-        band_vals = [analysis.bands[b] for b in BAND_NAMES if analysis.bands[b] > -85]
-        if not band_vals:
-            self._prev_active_issues = set()
-            return []
-        median_level = sorted(band_vals)[len(band_vals) // 2]
+        # Use mic normalized_shape_db when available — mean-subtracted, position-independent.
+        # Falls back to internal median normalization of RoomAnalysis bands.
+        if mic_analysis is not None and not mic_analysis.is_silent:
+            from core.mic_analyzer import band_average
+            normalized_band_levels = {
+                band: band_average(mic_analysis.normalized_shape_db,
+                                   BAND_RANGES[band])
+                for band in BAND_NAMES
+            }
+            def get_normalized(band: str) -> tuple[float, bool]:
+                val = normalized_band_levels[band]
+                return val, val > -85.0
+        else:
+            band_vals = [analysis.bands[b] for b in BAND_NAMES if analysis.bands[b] > -85]
+            if not band_vals:
+                self._prev_active_issues = set()
+                return []
+            median_level = sorted(band_vals)[len(band_vals) // 2]
+            def get_normalized(band: str) -> tuple[float, bool]:
+                raw = analysis.bands[band]
+                return raw - median_level, raw > -85.0
 
         for band in BAND_NAMES:
-            raw_level = analysis.bands[band]
-            if raw_level <= -85:
+            normalized, valid = get_normalized(band)
+            if not valid:
                 continue
-            normalized = raw_level - median_level       # relative to mix median
             target_offset = self._genre.target_for_band(band)
             raw_deviation = normalized - target_offset
             weight = BAND_PERCEPTUAL_WEIGHTS.get(band, 1.0)

@@ -311,14 +311,15 @@ class TestScenarioFiles:
         assert len(spikes) >= 1, "solo_event should include a fader spike ≥ +3 dB"
 
     def test_sparse_mic_initial_fader_produces_rms_below_threshold(self):
-        """Drum Vocal (ch 6) initial fader should yield simulated RMS below -35 dBFS."""
+        """Drum Vocal (ch 10 in Phase 2) initial fader should yield simulated RMS below -35 dBFS."""
         with open(SCENARIOS_DIR / "sparse_mic.yaml", "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         board = SimBoard()
         board.apply_initial_state(data.get("initial_state", {}))
-        ch6_fader = board.get(6, "fader")
+        # Drum Vocal is ch 10 in Phase 2 (was ch 6 in Phase 1)
+        ch10_fader = board.get(10, "fader")
         # SimBoard approximation: RMS linear = fader_float * 0.4
-        rms_linear = ch6_fader * 0.4
+        rms_linear = ch10_fader * 0.4
         import math
         rms_db = 20 * math.log10(rms_linear) if rms_linear > 0 else -90.0
         assert rms_db < -35.0, (

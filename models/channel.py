@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+import numpy as np
+
 
 @dataclass
 class EQBand:
@@ -49,3 +51,84 @@ class ChannelState:
         if self.inactive_threshold_db is not None:
             return self.rms_db > self.inactive_threshold_db
         return True
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 data models — ChannelConfig and ChannelMeterState
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ChannelConfig:
+    """
+    Complete static signal chain for one channel.
+    Recomputed on startup and whenever engineer changes EQ, HPF, or fader via /xremote.
+    """
+    channel_num: int
+    label: str
+    instrument_type: str       # kick | snare | overhead | guitar | guitar_lead | bass_di |
+                               # vocal_lead | vocal_bkg | keys
+
+    # Preamp
+    trim_db: float
+    polarity_inverted: bool
+    hpf_enabled: bool          # True when hpf_freq_hz > 20Hz (NOT from hpon — hpon = phantom power)
+    hpf_freq_hz: float
+    hpf_slope_db_oct: int      # 12, 18, or 24
+
+    # EQ
+    eq_enabled: bool
+    eq_bands: list             # list of EQBand (4 bands)
+
+    # Fader and routing
+    fader_db: float
+    muted: bool
+    pan: float                 # [-100, +100]
+
+    # Dynamics
+    comp_enabled: bool
+    comp_threshold_db: float
+    comp_ratio: float
+    comp_attack_ms: float
+    comp_release_ms: float
+    comp_makeup_db: float
+
+    # Gate
+    gate_enabled: bool
+    gate_threshold_db: float
+    gate_range_db: float
+
+    # Derived curves — computed by channel_model.py after config is loaded.
+    # Shape: (N_FREQS,) in dB on FREQ_AXIS. None until compute_transfer_curves() is called.
+    hpf_curve_db: Optional[np.ndarray] = field(default=None, repr=False)
+    eq_curve_db: Optional[np.ndarray] = field(default=None, repr=False)
+    transfer_curve_db: Optional[np.ndarray] = field(default=None, repr=False)
+
+    last_config_update: float = 0.0
+
+
+@dataclass
+class ChannelMeterState:
+    """Real-time meter readings for one channel. Updated every 50ms."""
+    channel_num: int
+    timestamp_ms: float
+
+    # From /meters/1 blob
+    input_rms_linear: float       # pre-fader input RMS
+    gate_gr_linear: float         # gate gain reduction (1.0 = no reduction)
+    dyn_gr_linear: float          # compressor gain reduction
+
+    # From /meters/6 (requested on state change events)
+    pre_fade_linear: float = 1.0
+    post_fade_linear: float = 1.0
+
+    # Derived
+    input_rms_db: float = -90.0
+    gate_gr_db: float = 0.0       # always <= 0
+    dyn_gr_db: float = 0.0        # always <= 0
+    post_fade_db: float = -90.0
+    effective_gr_db: float = 0.0  # gate_gr_db + dyn_gr_db
+
+    # Input state
+    rms_delta_db: float = 0.0
+    input_state: str = 'normal'   # normal|solo_onset|solo_active|decay|gated|silent
+    prev_input_state: str = 'normal'

@@ -1,0 +1,53 @@
+venue:
+  name: "Outdoor Patio — June 13"
+  id: "outdoor_patio_june13"
+  capacity: 150
+
+  stage:
+    type: "open_air"
+    sub_type: "patio"
+
+    room: null
+
+    environment:
+      nearest_wall_distance_m: 8.0
+      nearest_wall_direction: "north"
+      ground_surface: "concrete"
+      pa_height_m: 2.4
+
+  pa:
+    config_type: "stereo_ground_stack"
+    crossover_hz: 100
+
+    top_left:
+      position_x_m: 2.0
+      position_y_m: 0.0
+      height_m: 2.4
+
+    top_right:
+      position_x_m: 5.0
+      position_y_m: 0.0
+      height_m: 2.4
+
+    sub_left:
+      position_x_m: 2.0
+      position_y_m: 0.0
+      height_m: 0.0
+      boundary_loaded: false
+
+    sub_right:
+      position_x_m: 5.0
+      position_y_m: 0.0
+      height_m: 0.0
+      boundary_loaded: false
+
+  reference_mic:
+    position_x_m: 3.5
+    position_y_m: 5.0
+    height_m: 1.5
+
+  pa_notes: >
+    AT2035 via PreSonus Studio 26c. Use foam windscreen — outdoor patio is exposed.
+    Speaker distances are estimates from position coords; measure with laser rangefinder
+    on arrival and update position_y_m values for accurate comb filter calculation.
+    Ground surface is concrete — expect boundary reinforcement in sub band.

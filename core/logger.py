@@ -5,6 +5,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
+
 from models.channel import ChannelState
 from models.event import AdjustmentEvent, LogEvent
 from core.recommender import Recommendation
@@ -15,7 +17,8 @@ REC_CORRELATION_WINDOW_S = 300      # 5 minutes
 
 
 class SessionLogger:
-    def __init__(self, band_name: str, mode: str, x32_ip: str, genre_default: str):
+    def __init__(self, band_name: str, mode: str, x32_ip: str, genre_default: str,
+                 log_level: str = 'summary'):
         SHOWS_DIR.mkdir(exist_ok=True)
         date_str = time.strftime("%Y-%m-%d")
         self._log_path = SHOWS_DIR / f"{date_str}_show.json"
@@ -30,6 +33,19 @@ class SessionLogger:
         }
         self._events: list[dict] = []
         self._event_counter = 0
+
+        # Phase 2 state
+        self._log_level = log_level
+        self._session["log_level"] = log_level
+        self._cycle_log_counter = 0
+        self._total_analysis_cycles = 0
+        self._fm_r2_mic_samples = []
+        self._fm_r2_board_samples = []
+        self._input_state_events_total = 0
+        self._input_state_events_mic_confirmed = 0
+        self._config_change_count = 0
+        self._session_start_time = time.time()
+        self._venue_id = None
 
         # Most recent RECOMMENDATION per channel for correlation
         self._last_recs: dict[int, tuple] = {}
@@ -270,6 +286,231 @@ class SessionLogger:
             delta = "Parameter type differs from recommendation"
 
         return prior_id, match_status, delta, round(lag, 1)
+
+    # ------------------------------------------------------------------
+    # Phase 2 logging methods
+    # ------------------------------------------------------------------
+
+    def log_venue_session_start(self, venue_profile) -> None:
+        """Log VENUE_SESSION_START event with geometry and acoustic details."""
+        from core.geometry import sub_top_phase_warning
+        self._venue_id = venue_profile.venue_id
+        acoustics = venue_profile.acoustics
+        geom = {
+            "comb_notch_frequencies_hz": getattr(acoustics, 'comb_notch_frequencies_hz', []),
+            "room_modes_hz": getattr(acoustics, 'room_modes_hz', []),
+            "sub_phase": getattr(acoustics, 'sub_phase', 'unknown'),
+            "sub_top_phase_warning": sub_top_phase_warning(acoustics),
+        }
+        acoustic_adj = {
+            "lufs_target_adjustment_db": getattr(acoustics, 'lufs_target_adjustment_db', 0.0),
+            "sub_target_adjustment_db": getattr(acoustics, 'sub_target_adjustment_db', 0.0),
+            "mic_reliability_weight": getattr(acoustics, 'mic_reliability_weight', 1.0),
+        }
+        entry = {
+            "id":                    self._next_id(),
+            "timestamp":             time.strftime("%H:%M:%S"),
+            "type":                  "VENUE_SESSION_START",
+            "venue_id":              venue_profile.venue_id,
+            "geometry":              geom,
+            "acoustic_adjustments":  acoustic_adj,
+        }
+        self._events.append(entry)
+        self._flush()
+
+    def log_analysis_cycle(self, fm_result, mic_analysis) -> None:
+        """Log ANALYSIS_CYCLE event. Respects log_level."""
+        if mic_analysis.is_silent:
+            return
+        self._total_analysis_cycles += 1
+        self._cycle_log_counter += 1
+
+        # Track R² samples
+        if hasattr(fm_result, 'r_squared_mic') and fm_result.r_squared_mic is not None:
+            self._fm_r2_mic_samples.append(fm_result.r_squared_mic)
+        if hasattr(fm_result, 'r_squared_board') and fm_result.r_squared_board is not None:
+            self._fm_r2_board_samples.append(fm_result.r_squared_board)
+
+        # In minimal mode, log only 1 in 10 cycles
+        if self._log_level == 'minimal' and (self._cycle_log_counter % 10) != 0:
+            return
+
+        try:
+            from core.channel_model import FREQ_AXIS
+            from core.mic_analyzer import ANALYSIS_BANDS
+            from core.forward_model import BAND_RANGES
+        except Exception:
+            FREQ_AXIS = None
+            ANALYSIS_BANDS = []
+            BAND_RANGES = {}
+
+        # Build band deviation summary
+        deviation_by_band = {}
+        if (FREQ_AXIS is not None and
+                hasattr(fm_result, 'mix_deviation_db') and fm_result.mix_deviation_db is not None and
+                hasattr(fm_result, 'confidence') and fm_result.confidence is not None):
+            for band_name, (lo, hi) in BAND_RANGES.items():
+                mask = (FREQ_AXIS >= lo) & (FREQ_AXIS < hi)
+                if mask.any():
+                    dev = float(np.mean(fm_result.mix_deviation_db[mask]))
+                    conf = float(np.mean(fm_result.confidence[mask]))
+                    deviation_by_band[band_name] = {"deviation_db": round(dev, 2), "confidence": round(conf, 3)}
+
+        # Build board RTA band averages
+        board_rta_by_band = {}
+        if (FREQ_AXIS is not None and
+                hasattr(fm_result, 'board_rta_db') and fm_result.board_rta_db is not None):
+            for band_name, (lo, hi) in BAND_RANGES.items():
+                mask = (FREQ_AXIS >= lo) & (FREQ_AXIS < hi)
+                if mask.any():
+                    avg = float(np.mean(fm_result.board_rta_db[mask]))
+                    board_rta_by_band[band_name] = round(avg, 1)
+
+        entry = {
+            "id":                self._next_id(),
+            "timestamp":         time.strftime("%H:%M:%S"),
+            "type":              "ANALYSIS_CYCLE",
+            "cycle_num":         self._total_analysis_cycles,
+            "r_squared_mic":     round(fm_result.r_squared_mic, 4) if hasattr(fm_result, 'r_squared_mic') and fm_result.r_squared_mic is not None else None,
+            "r_squared_board":   round(fm_result.r_squared_board, 4) if hasattr(fm_result, 'r_squared_board') and fm_result.r_squared_board is not None else None,
+            "actionable_bands":  getattr(fm_result, 'actionable_bands', []),
+            "deviation_by_band": deviation_by_band,
+            "board_rta_by_band": board_rta_by_band,
+            "dominant_channels": getattr(fm_result, 'dominant_channels', []),
+        }
+        if self._log_level == 'full' and hasattr(mic_analysis, 'smoothed_spectrum_db') and mic_analysis.smoothed_spectrum_db is not None:
+            entry["spectrum_sample"] = [round(float(v), 1) for v in mic_analysis.smoothed_spectrum_db[::10]]
+        self._events.append(entry)
+        self._flush()
+
+    def log_input_state_event(self, channel_num: int, from_state: str, to_state: str,
+                               meter, characterization) -> None:
+        """Log INPUT_STATE_EVENT."""
+        self._input_state_events_total += 1
+        mic_confirmed = characterization is not None and getattr(characterization, 'mic_confirmed', False)
+        if mic_confirmed:
+            self._input_state_events_mic_confirmed += 1
+        entry = {
+            "id":            self._next_id(),
+            "timestamp":     time.strftime("%H:%M:%S"),
+            "type":          "INPUT_STATE_EVENT",
+            "channel_num":   channel_num,
+            "from_state":    from_state,
+            "to_state":      to_state,
+            "input_rms_db":  round(meter.input_rms_db, 1) if meter else None,
+            "post_fade_db":  round(meter.post_fade_db, 1) if meter else None,
+            "gate_gr_db":    round(meter.gate_gr_db, 1) if meter else None,
+            "dyn_gr_db":     round(meter.dyn_gr_db, 1) if meter else None,
+            "mic_confirmed": mic_confirmed,
+            "characterization": {
+                "type": getattr(characterization, 'event_type', None),
+                "detail": getattr(characterization, 'detail', None),
+            } if characterization else None,
+        }
+        self._events.append(entry)
+        self._flush()
+
+    def log_config_change_enhanced(self, channel_num: int, channel_label: str,
+                                    parameter: str, before, after,
+                                    eq_state=None, transfer_curve=None) -> None:
+        """Log CONFIG_CHANGE with EQ state and transfer curve."""
+        self._config_change_count += 1
+        entry = {
+            "id":            self._next_id(),
+            "timestamp":     time.strftime("%H:%M:%S"),
+            "type":          "CONFIG_CHANGE",
+            "channel_num":   channel_num,
+            "channel_label": channel_label,
+            "parameter":     parameter,
+            "before":        before,
+            "after":         after,
+            "eq_state":      eq_state,
+            "transfer_curve_sample": transfer_curve,
+        }
+        self._events.append(entry)
+        self._flush()
+
+    def log_warning(self, message: str) -> None:
+        """Log WARNING event."""
+        entry = {
+            "id":        self._next_id(),
+            "timestamp": time.strftime("%H:%M:%S"),
+            "type":      "WARNING",
+            "message":   message,
+        }
+        self._events.append(entry)
+        self._flush()
+
+    def log_cal_scan(self, scan_results: list, prior_updates: list) -> None:
+        """Log CAL_SCAN event with per-channel band deviations and prior updates."""
+        summary = []
+        for r in scan_results:
+            ch = r.get('channel')
+            label = getattr(ch, 'label', r.get('channel', '?'))
+            notable = {
+                band: round(data['deviation'], 2)
+                for band, data in r.get('bands', {}).items()
+                if abs(data.get('deviation', 0)) >= 1.5
+            }
+            if notable:
+                summary.append({'channel': label, 'notable_bands': notable})
+        entry = {
+            "id":           self._next_id(),
+            "timestamp":    time.strftime("%H:%M:%S"),
+            "type":         "CAL_SCAN",
+            "channels_scanned": len(scan_results),
+            "prior_updates":    len(prior_updates),
+            "notable_deviations": summary,
+        }
+        self._events.append(entry)
+        self._flush()
+
+    def log_iso_sample(self, sample_result: dict, prior_updates: list) -> None:
+        """Log ISO_SAMPLE event with board/mic vs prior deviations."""
+        entry = {
+            "id":            self._next_id(),
+            "timestamp":     time.strftime("%H:%M:%S"),
+            "type":          "ISO_SAMPLE",
+            "channel":       sample_result.get('channel'),
+            "channel_num":   sample_result.get('channel_num'),
+            "instrument":    sample_result.get('instrument_type'),
+            "duration_s":    sample_result.get('duration_s'),
+            "board_vs_prior": sample_result.get('board_vs_prior', {}),
+            "mic_vs_prior":   sample_result.get('mic_vs_prior', {}),
+            "prior_updates":  len(prior_updates),
+        }
+        self._events.append(entry)
+        self._flush()
+
+    def log_session_summary(self) -> None:
+        """Log SESSION_SUMMARY event."""
+        duration_s = time.time() - self._session_start_time
+        mean_r2_mic = float(np.mean(self._fm_r2_mic_samples)) if self._fm_r2_mic_samples else None
+        mean_r2_board = float(np.mean(self._fm_r2_board_samples)) if self._fm_r2_board_samples else None
+        confirmation_rate = (
+            self._input_state_events_mic_confirmed / self._input_state_events_total
+            if self._input_state_events_total > 0 else None
+        )
+        entry = {
+            "id":          self._next_id(),
+            "timestamp":   time.strftime("%H:%M:%S"),
+            "type":        "SESSION_SUMMARY",
+            "duration_s":  round(duration_s, 1),
+            "venue_id":    self._venue_id,
+            "forward_model_performance": {
+                "total_analysis_cycles": self._total_analysis_cycles,
+                "mean_r2_mic":           round(mean_r2_mic, 4) if mean_r2_mic is not None else None,
+                "mean_r2_board":         round(mean_r2_board, 4) if mean_r2_board is not None else None,
+            },
+            "input_state_events": {
+                "total":              self._input_state_events_total,
+                "mic_confirmed":      self._input_state_events_mic_confirmed,
+                "confirmation_rate":  round(confirmation_rate, 3) if confirmation_rate is not None else None,
+            },
+            "config_changes": self._config_change_count,
+        }
+        self._events.append(entry)
+        self._flush()
 
     # ------------------------------------------------------------------
     # Generic event logging

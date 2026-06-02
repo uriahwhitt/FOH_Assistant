@@ -86,7 +86,7 @@ timeline:
   - at_s: 180
     action: fader_move
     channel: 8
-    target_db: -2.5
+    target_db: -5.5
     note: "Guitar 2 slight trim (-0.5 dB) — below all thresholds"
 
   - at_s: 240

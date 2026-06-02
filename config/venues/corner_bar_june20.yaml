@@ -1,0 +1,46 @@
+venue:
+  name: "Corner Bar — June 20"
+  id: "corner_bar_june20"
+  capacity: 100
+
+  stage:
+    type: "corner"
+
+    room:
+      length_m: 9.0
+      width_m: 7.0
+      ceiling_height_m: 4.8
+      shape_notes: "Band in SW corner. High ceiling increases modal density."
+
+    environment: null
+
+  pa:
+    config_type: "corner_splayed"
+    crossover_hz: 100
+
+    top_left:
+      position_x_m: 0.5
+      position_y_m: 0.0
+      height_m: 2.5
+
+    top_right:
+      position_x_m: 0.5
+      position_y_m: 0.5
+      height_m: 2.5
+
+    sub_left:
+      position_x_m: 0.3
+      position_y_m: 0.3
+      height_m: 0.0
+      boundary_loaded: true
+
+    sub_right:
+      position_x_m: 0.3
+      position_y_m: 0.3
+      height_m: 0.0
+      boundary_loaded: true
+
+  reference_mic:
+    position_x_m: 3.5
+    position_y_m: 5.0
+    height_m: 1.5

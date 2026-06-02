@@ -1,7 +1,7 @@
 # FOH Assistant — Scope & Requirements
-**Version:** 0.6  
-**Status:** Draft  
-**Last Updated:** 2026-05-03  
+**Version:** 0.7  
+**Status:** Active — Phase 2 in progress  
+**Last Updated:** 2026-05-26  
 **Author:** Uriah Whittemore
 
 ---
@@ -42,51 +42,75 @@ FOH Assistant addresses these by providing continuous room monitoring with conte
 
 ## 4. Hardware Context
 
-| Component | Details |
-|---|---|
-| Mixing Console | Behringer X32 |
-| Control Surface | Tablet running X32-Q or X32-Mix app |
-| Reference Mic | DJI Mic 2 (clipped mid-room, ear height, audience position) |
-| Audio Interface | DJI USB receiver (plugged into laptop) |
-| Host Machine | Laptop on same WiFi network as X32 |
-| Network | Local WiFi — X32 acts as access point or joins local network |
+| Component | Phase 1 | Phase 2 (Current) |
+|---|---|---|
+| Mixing Console | Behringer X32 | Behringer X32 |
+| Control Surface | Tablet running X32-Q or X32-Mix | Tablet running X32-Q or X32-Mix |
+| Reference Mic | DJI Mic 2 (clipped mid-room) | Audio Technica AT2035 cardioid condenser |
+| Audio Interface | DJI USB receiver | PreSonus Studio 26c USB interface |
+| Host Machine | Laptop on same WiFi as X32 | Laptop on same WiFi as X32 |
+| Network | Local WiFi — X32 as AP or joined network | Local WiFi — X32 as AP or joined network |
+
+**Phase 3+ addition:** Second mic channel (boundary/PZM) on PreSonus Ch2 for two-point room characterization (see IMP-042).
 
 ---
 
 ## 5. System Architecture
 
+The architecture uses two primary intelligence sources — the X32 board data and the room microphone — with distinct, non-overlapping roles.
+
 ```
-[DJI Mic 2 - Room Reference]
-         |
-   [DJI USB Receiver]
-         |
-      [Laptop]
-         |
-   ┌─────┴──────────────────────┐
-   │                            │
-[Audio Analysis]         [OSC Client]
- - LUFS/RMS                     |
- - FFT frequency bands    [X32 over UDP]
- - Rate of change          - Channel fader levels
-                           - Channel EQ state (4-band)
-                           - Channel compressor state
-                           - Channel gate state
-                           - Bus/main levels
-   └─────────────┬──────────────┘
-                 │
-        [Recommendation Engine]
-         - Frequency fingerprint matching
-         - Channel map labeling
-         - Genre profile comparison
-         - Setlist/song context
-         - Solo flag suppression
-         - Baseline drift detection
-                 │
-        [Advisory Output]
-         - Terminal (MVP)
-         - Simple UI (v2)
-         - Show report/log
+┌─────────────────────────────────────────────────────────────────┐
+│                    X32 BOARD (Primary Intelligence)              │
+│  OSC/UDP over WiFi                                               │
+│                                                                  │
+│  Per-Channel (50ms):          Main Bus:                         │
+│  /meters/1 → RMS, gate GR,   /meters/15 → 100-band RTA         │
+│  dyn GR all 32 channels       (via setrtasrc — switchable)      │
+│                                                                  │
+│  Config (on change):                                            │
+│  EQ (4-band), HPF, fader,     /-action/setrtasrc → target RTA  │
+│  compressor, gate settings    at any channel or Main L/R        │
+└──────────────┬──────────────────────────┬───────────────────────┘
+               │                          │
+               ▼                          ▼
+   [Channel Model]              [RTA Investigation Engine]
+   - EQ transfer functions       - Tier 1: Main bus always-on
+   - HPF response curves         - Tier 2: Reactive channel scan
+   - Contribution curves         - Tier 3: cal command scan
+   - Instrument priors           - Returns to Main L/R after each
+               │                          │
+               └──────────┬───────────────┘
+                           │
+                    [Forward Mix Model]
+                    - predicted = Σ contributions
+                    - deviation = measured - predicted
+                    - Mix deviation → recommendations
+                    - Room deviation → venue profile
+                           │
+          ┌────────────────┴────────────────┐
+          │                                  │
+[Reference Mic (Secondary)]        [Recommendation Engine]
+AT2035 via PreSonus Studio 26c      - Confidence scoring
+- LUFS monitoring (primary use)     - Deficiency response (IMP-044)
+- Room acoustic sanity check        - Buildup response
+- Geometry-corrected FFT            - Genre profile comparison
+- Venue transfer function           - Setlist/song context
+  accumulation                      - Baseline drift detection
+          │                                  │
+          └─────────────────────────────────▶│
+                                             │
+                                    [Advisory Output]
+                                    - Terminal (Phase 1–2)
+                                    - UI dashboard (Phase 3)
+                                    - Show log (JSON)
 ```
+
+**Key architecture principles:**
+- The X32 board is the primary per-channel intelligence source. It has real data on what each channel is doing at all times.
+- The room mic's role is LUFS monitoring and room acoustic characterization — it cannot resolve individual channel contributions from the mixed output.
+- The RTA engine (`/meters/15`) provides a single switchable spectrum analyzer. It monitors the main bus continuously and investigates individual channels on demand.
+- The forward model combines channel contribution curves (calculated from EQ physics) with actual RMS meter data to predict what the board is outputting. Deviations from the room mic are decomposed into mix problems vs room acoustics.
 
 ---
 
@@ -198,44 +222,54 @@ channels:
 - During show, drift from baseline is tracked and factored into recommendations
 
 ### 6.3 Reference Mic Analysis
-- Continuous audio capture from DJI USB receiver
-- Real-time analysis:
-  - Integrated LUFS (overall loudness)
-  - Short-term RMS
-  - FFT breakdown by frequency band:
-    - Sub bass: 20–80Hz
-    - Bass: 80–250Hz
-    - Low mid: 250–500Hz
-    - Mid: 500Hz–2kHz
-    - High mid: 2–6kHz
-    - Presence: 6–12kHz
-    - Air: 12kHz+
-- Rate of change tracking to distinguish intentional moves from gradual drift
+The room mic serves two specific functions in the current architecture. It is **not** the primary source of per-channel intelligence.
 
-### 6.4 X32 Channel Meter Polling
-- Poll X32 for per-channel RMS levels via OSC at configurable interval (default: 500ms)
-- Correlate channel meter data with frequency band issues detected by reference mic
-- Identify likely contributing channels to a detected problem
+**Function 1 — LUFS monitoring:** Continuous integrated loudness measurement against genre targets. This is the mic's primary use throughout a show.
 
-### 6.5 Frequency Fingerprint Map
-- Per-instrument frequency fingerprints used to assist channel-to-frequency correlation:
+**Function 2 — Room acoustic characterization:** Geometry-corrected FFT compared against the forward model's predicted spectrum. Systematic deviations (consistent across songs) are captured as the venue's room transfer function and stored in the venue profile for future shows.
 
-```yaml
-fingerprints:
-  Kick:        primary: 60-80Hz,   secondary: 2-5kHz
-  Snare:       primary: 150-250Hz, secondary: 5-8kHz
-  Hi-Hat:      primary: 8-12kHz
-  Guitar 1:    primary: 200-5kHz
-  Guitar 2:    primary: 200-5kHz
-  Bass DI:     primary: 80-250Hz,  secondary: 500Hz-1kHz
-  Keys:        primary: 200Hz-8kHz
-  Lead Vocal:  primary: 300Hz-4kHz, secondary: 1-4kHz presence
-  Harmony Vocal: primary: 300Hz-4kHz
-  Overheads:   primary: 5kHz+
-```
+**Analysis pipeline:**
+- Welch's method FFT (500ms window, 50% overlap) — more stable than single-window FFT
+- Interpolated to shared 1000-point log-spaced frequency axis (20Hz–20kHz)
+- Geometry correction applied (comb filter notch masking, boundary reinforcement compensation)
+- Exponential moving average smoothing (α=0.3)
+- 8-band energy summary for LUFS and room acoustic comparison
 
-### 6.6 Recommendation Engine
-Combines reference mic analysis, channel meter data, EQ state, and frequency fingerprints to generate labeled recommendations.
+**What the mic does NOT do:** Resolve individual channel contributions. A room mic receives the summed mix output from all channels simultaneously. The channel-level intelligence comes from X32 OSC meter data and the EQ transfer function model.
+
+### 6.4 X32 Data Acquisition
+The X32 is the primary intelligence source. Three data streams:
+
+**Stream 1 — Per-channel meters (`/meters/1`, 50ms):**
+- All 32 channel RMS levels simultaneously
+- Gate gain reduction and compressor gain reduction per channel
+- Used to determine which channels are active and at what level
+
+**Stream 2 — Main bus RTA (`/meters/15`, 50ms):**
+- 100-band spectrum, 20Hz–18.66kHz, post-EQ
+- Default source: Main L/R (always-on Tier 1 monitoring)
+- Source switched via `/-action/setrtasrc` during investigations
+- Three operating modes:
+  - **Tier 1 (always-on):** Main bus continuous monitoring, triggers investigations
+  - **Tier 2 (reactive):** Targeted channel investigation when problem detected, <1 second, returns to Main L/R
+  - **Tier 3 (user-triggered):** `cal` command live calibration scan during a song, 3–5 seconds
+
+**Stream 3 — Channel config (on-change via `/xremote`):**
+- EQ band settings (type, frequency, gain, Q — 4 bands per channel)
+- HPF frequency and slope (`/preamp/hpf`, `/preamp/hpslope`)
+- Fader level, mute state
+- Compressor and gate settings
+- Triggers EQ transfer function recomputation when any config changes
+
+### 6.5 Forward Mix Model
+For each active channel, the system computes a frequency-resolved contribution curve:
+
+1. **EQ transfer function** — Mathematically exact from OSC EQ parameters (biquad filter math)
+2. **HPF response** — Butterworth filter at the configured cutoff and slope
+3. **Instrument prior** — Natural spectral shape of this instrument type before EQ (learned and refined by `cal` scans)
+4. **Level scalar** — Post-fade RMS from meter data
+
+Sum all channel contributions → predicted spectrum. Compare to room mic (deviation = mix problems + room acoustics) and to board RTA (deviation = model accuracy). Decompose deviations; generate confidence-gated recommendations.
 
 **Output format:**
 ```
@@ -660,108 +694,122 @@ This is intentional. Trust must be established before automation is introduced.
 
 ## 8. Phases / Roadmap
 
-### Phase 1 — MVP (Target: Next Show)
-- [ ] OSC connection to X32, confirm read access
-- [ ] Read channel fader levels and EQ state
-- [ ] Read channel mute states (Keys/Guitar 3 paired channel detection)
-- [ ] Audio capture from DJI USB receiver
-- [ ] Real-time LUFS and frequency band analysis
-- [ ] Static channel map config with vocal usage metadata
-- [ ] Genre profile library (built-in templates — general + 5 classic rock + Post-Grunge + Party Rock)
-- [ ] Band profile config with per-song genre tagging and custom overrides
-- [ ] **Baseline / Soundcheck mode** (`--baseline` flag)
-  - [ ] Per-channel assessment against genre target curve
-  - [ ] Iterative re-assessment after engineer adjustments
-  - [ ] Combined mix assessment with full band
-  - [ ] Baseline snapshot saved on engineer confirmation
-- [ ] Show mode — recommendation engine loads active song genre profile dynamically
-- [ ] Sparse mic handling — ignore open unused mics below inactive threshold
-- [ ] Show log saved to file (JSON per show)
-- [ ] Manual adjustment detection via OSC poll diff
-- [ ] Recommendation-to-adjustment correlation and tagging
-- [ ] Post-show comparison report generated at session end
+### Phase 1 — MVP ✅ Complete (May 2026)
+- [x] OSC connection to X32, read channel fader and EQ state
+- [x] Audio capture from DJI Mic 2 USB receiver
+- [x] Real-time LUFS and frequency band analysis
+- [x] Static channel map config with vocal usage metadata
+- [x] Genre profile library (AOR, Hard Rock, Glam Metal, Heavy Rock, Heavy Metal, Post-Grunge, Party Rock)
+- [x] Soundcheck mode (`--soundcheck`) with continuous advisory and `confirm` baseline lock
+- [x] Show mode — recommendation engine with genre-aware frequency analysis
+- [x] Sparse mic handling
+- [x] Manual song markers (`n` = next song, `p` = previous, `e` = end early)
+- [x] Show log saved to JSON per show
+- [x] Manual adjustment detection via OSC poll diff
+- [x] Post-show comparison report
+- [x] Named EQ moves, Q guidance, psychoacoustic band weighting
+- [x] Multi-factor culprit scoring (fingerprint + RMS + EQ boost in band)
+- [x] Frequency fingerprint corrections per instrument
 
-### Phase 2 — Setlist Integration
-- [ ] Setlist config file support
-- [ ] Per-song solo/event annotations
-- [ ] Solo suppression logic
-- [ ] Song library persistence across shows
-- [ ] Soundcheck baseline snapshot
+**Show 1 — May 9, AJ's Bar:** System ran for full show. LUFS recommendations worked. Channel-level recommendations did not fire — DJI Mic 2 could not resolve individual channels from room mix. House PA configuration (DJ/hip-hop low-end boost) was the primary show problem, corrected at the PA level. Architecture shift initiated.
 
-### Phase 3 — Simple UI
-- [ ] Web-based dashboard (local, runs on laptop)
-- [ ] Real-time level meters and frequency display
+### Phase 2 — Forward Model + RTA Intelligence (Current — Target: June 2026)
+
+**Board model (IMPL_X32_Board_Model.md):**
+- [ ] Extended OSC data acquisition — preamp, comp, gate details
+- [ ] `/meters/15` subscription alongside `/meters/1`
+- [ ] `channel_model.py` — EQ transfer functions (all band types), HPF response, contribution curves
+- [ ] Instrument prior system with per-state shapes (normal, solo_active, etc.)
+- [ ] Input state inference per channel (solo detection, gating)
+
+**Mic analyzer (IMPL_Mic_Analyzer.md):**
+- [x] AT2035 + PreSonus Studio 26c device detection
+- [ ] Welch's method FFT (replaces single-window)
+- [ ] Geometry-corrected spectrum via venue acoustics module
+- [ ] EMA smoothing, peak detection within bands
+
+**Venue geometry (IMPL_Geometry.md):**
+- [ ] `core/geometry.py` — comb filter, room modes, boundary gain, phase calculations
+- [ ] Venue profile YAML schema and loader
+- [ ] `--setup-venue` measurement wizard
+- [ ] AJ's Bar profile, June 13 outdoor patio profile
+
+**Forward mix model (IMPL_Forward_Mix_Model.md):**
+- [ ] `core/forward_model.py` — predicted spectrum, deviation decomposition
+- [ ] R² correlation metrics vs board RTA and mic
+- [ ] Channel contribution scoring per band
+- [ ] Confidence scoring gate for recommendations
+- [ ] **Passive mode for June 13 show** — logs everything, fires no new recommendations
+- [ ] Enhanced log schema (ANALYSIS_CYCLE, INPUT_STATE_EVENT, CONFIG_CHANGE events)
+
+**RTA investigation engine (IMP-043):**
+- [ ] `/-action/setrtasrc` control — RTA state machine (MAIN_BUS / INVESTIGATING / CALIBRATING)
+- [ ] Tier 1: Main bus continuous 100-band spectrum monitoring
+- [ ] Tier 2: Reactive targeted channel investigation (<1 second)
+- [ ] `cal` keyboard command — live calibration scan (IMP-045)
+
+**Deficiency response (IMP-044):**
+- [ ] Cause classification (overall level / channel shortfall / room absorption)
+- [ ] Proportional per-channel boost calculation (fader vs EQ decision)
+- [ ] Sequenced output format with "apply in order" language
+
+**Other Phase 2 items:**
+- [ ] HPF detection fix — use `hpf_freq_hz > 22Hz` not `hpon` flag (IMP-026)
+- [ ] Venue profile system with AJ's Bar PA checklist (IMP-027)
+- [ ] Ambient noise baseline capture (IMP-028)
+- [ ] X32 channel name pull from board (IMP-030)
+
+**June 13 validation targets:** Forward model R² (predicted vs board RTA) > 0.70. If met → activate channel-level recommendations for the following show.
+
+### Phase 3 — UI + Two-Mic Geometry
+- [ ] Web-based dashboard (local, runs on laptop) with real-time spectrum display
 - [ ] Recommendations panel with dismiss/acknowledge
-- [ ] Setlist management UI
-- [ ] Band/channel map management
+- [ ] Setlist management and venue management UI
+- [ ] Second mic channel (boundary/PZM on PreSonus Ch2) — IMP-042
+- [ ] Two-point room transfer function (coverage verification, room mode prediction from geometry)
+- [ ] Solo preset commands (`1`, `2`, `3` keys for guitar/keys solos) — IMP-D03
+- [ ] Show replay simulator for offline validation — IMP-D02
 
 ### Phase 4 — Automation (Opt-in)
 - [ ] OSC write capability (fader adjustments only initially)
-- [ ] Configurable automation rules with hard safety limits
-- [ ] Per-adjustment size caps (e.g. max ±2dB per cycle)
+- [ ] Configurable automation rules with hard safety limits (max ±2dB per cycle)
 - [ ] Manual override always available
-- [ ] Automation log separate from advisory log
-- [ ] **Proactive genre switching** — when song changes genre profile, suggest pre-song EQ/fader adjustments before first note hits
-- [ ] Opt-in auto-apply of genre transition adjustments with confirmation prompt
+- [ ] Automated solo mix — boost pedal detection triggers preset (IMP-D04)
+- [ ] Proactive genre switching — suggest pre-song adjustments before first note
 
 ### Phase 5 — Intelligence Layer
-- [ ] Multi-show pattern recognition per band
-- [ ] Pre-show suggestions based on historical data
-- [ ] LLM integration for complex mix advisory
+- [ ] Small local ML model trained on show log correction patterns
+- [ ] Pre-show suggestions from historical data
+- [ ] LLM (Claude API) conversational layer backed by internal model state
 - [ ] Band profile export/import
-- [ ] Community genre profile sharing (user-submitted profiles)
+- [ ] Community genre profile sharing
 
 ### Phase 6 — Reference Audio Targeting
-- [ ] Per-song reference audio file support (local MP3/WAV/FLAC)
-- [ ] One-time reference track analysis pipeline:
-  - Integrated LUFS measurement
-  - Per-band frequency curve extraction
-  - Section detection (verse/chorus/full-band identification)
-  - Full-band section weighted as primary target
-  - Curve saved to `curves/<song_slug>.json` — not re-analyzed unless file changes
-- [ ] Reference curve replaces genre template as recommendation target when available
-- [ ] Cover band delta tracking — logs consistent differences between band's live sound and reference recording (instrument tone signatures, not just levels)
-- [ ] Pre-show reference curve summary printed at session start:
-  ```
-  Reference targets loaded:
-    Don't Stop Believin' → Journey studio curve (LUFS -19.8)
-    Round and Round      → Ratt studio curve (LUFS -18.2)
-    Bad Reputation       → genre fallback (Hard Rock) — no reference file
-  ```
-- [ ] Reference audio never transmitted, reproduced, or stored beyond local analysis curve
-- [ ] Terms of service note: reference analysis is local-only, equivalent to using a spectrum analyzer
-
-**Reference song data model (Phase 6 ready, stubbed from Phase 1):**
-```yaml
-- song: "Round and Round"
-  artist: "Ratt"
-  album: "Out of the Cellar"
-  year: 1984
-  genre_profile: "Glam Metal"          # fallback if no reference file
-  reference_file: "references/ratt_round_and_round.mp3"
-  reference_analyzed: true             # set true after first analysis run
-  reference_curve: "curves/ratt_round_and_round.json"
-  reference_lufs: -18.2
-  reference_notes: "Warren DeMartini tone — heavy @ 3.2kHz, tight low-mid"
-  cover_band_delta:                    # populated after show data accumulates
-    Guitar_1_high_mid: +1.8dB         # band consistently runs hotter here
-    Bass_DI_low_end: -1.2dB           # band runs lighter in sub vs record
-```
+- [ ] Per-song reference audio files analyzed locally to extract frequency targets
+- [ ] Reference curve replaces genre template when available
+- [ ] Cover band delta tracking (consistent differences vs studio recording)
+- [ ] Reference analysis is local-only — no audio transmitted or reproduced
 
 ---
 
-## 9. Technical Stack (Proposed)
+## 9. Technical Stack
 
 | Layer | Technology |
 |---|---|
 | Language | Python 3.11+ |
 | OSC Communication | `python-osc` library |
 | Audio Capture | `sounddevice` |
-| Audio Analysis | `numpy`, `scipy` (FFT), `pyloudnorm` (LUFS) |
+| Audio Analysis | `numpy`, `scipy` (Welch FFT, filter math), `pyloudnorm` (LUFS) |
 | Config Files | YAML |
-| Show Logs | CSV + JSON |
-| UI (Phase 3) | React + Vite (served locally) or simple terminal UI |
-| Data Persistence | Local JSON files (Phase 1-3), SQLite (Phase 4+) |
+| Show Logs | JSON per show |
+| UI (Phase 3) | React + Vite (served locally) |
+| Data Persistence | Local JSON files (Phase 1–3), SQLite (Phase 4+) |
+
+**IMPL documents (Claude Code implementation references):**
+- `IMPL_X32_Board_Model.md` — OSC data acquisition, channel model, EQ transfer functions
+- `IMPL_Mic_Analyzer.md` — Audio capture, Welch FFT, geometry correction
+- `IMPL_Geometry.md` — Venue acoustics, room modes, comb filtering, boundary gain
+- `IMPL_Forward_Mix_Model.md` — Forward model, deviation analysis, enhanced logging
 
 ---
 
@@ -778,33 +826,43 @@ This is intentional. Trust must be established before automation is introduced.
 
 ## 11. Open Questions
 
-- [ ] What is the X32 network IP at typical show venues? (confirm at next show)
-- [ ] Does the X32 OSC protocol support subscribing to channel meter updates or does it require polling?
-- [ ] What sample rate does the DJI USB receiver expose to the OS?
-- [ ] Should the channel map support aux sends and bus routing visibility?
-- [ ] Multi-band compressor channels — worth reading/recommending on, or out of scope for MVP?
-- [ ] Should genre profiles be community-shareable in a later phase? (user-submitted genre/band profiles)
-- [x] ~~What genre does the band primarily play?~~ — **Resolved:** Classic rock cover band spanning AOR, Hard Rock, Glam Metal, Heavy Rock, and Heavy Metal subgenres. Song-level genre tagging adopted.
-- [ ] Does the band use two guitarists simultaneously or one at a time? (affects Guitar 1 / Guitar 2 blend recommendations)
-- [ ] Do Judas Priest / Pantera songs use the same channel assignments as AOR songs or does the band reconfigure for heavier material?
+- [ ] June 13 outdoor patio — what are the actual PA distances for geometry setup? (measure on arrival with laser rangefinder)
+- [ ] Calibration scan (`cal`) — what's the right `α` learning rate? Starting at 0.1; tune from first two shows.
+- [ ] Should the `cal` scan update priors in real time or queue updates for engineer approval?
+- [ ] Forward model R² validation — if below 0.70 at June 13, what's the diagnosis protocol?
+- [x] ~~What is the X32 network IP at typical show venues?~~ — **Resolved:** Static IP assigned, confirmed at AJ's Bar.
+- [x] ~~Does X32 OSC support subscribing to meter updates?~~ — **Resolved:** Yes, `/batchsubscribe` with 10-second timeout, renewed every 8 seconds.
+- [x] ~~What sample rate does the DJI USB receiver expose?~~ — **Resolved:** AT2035 via PreSonus Studio 26c at 48000Hz is the Phase 2 standard.
+- [x] ~~HPF on/off address~~ — **Resolved:** `/preamp/hpon` is phantom power, not HPF. HPF state inferred from `/preamp/hpf` frequency > 22Hz.
+- [x] ~~Does the band use two guitarists simultaneously?~~ — **Resolved:** Both active simultaneously, trade lead/solo dynamically. Both channels always open.
 
 ---
 
-## 12. Success Criteria (Phase 1)
+## 12. Success Criteria
 
-- Script connects to X32 and reads channel state without errors
+### Phase 1 ✅ Met
+- Script connected to X32 and read channel state without errors
 - DJI USB receiver recognized as audio input device
-- Genre profile loads and target curve is applied to recommendation engine
-- Baseline mode produces actionable per-channel recommendations during soundcheck
-- Baseline snapshot saved and used as show reference
-- Manual adjustments detected automatically via OSC poll diff
-- Recommendations and manual adjustments logged with correlation tagging
-- Post-show comparison report generated with accuracy metrics
-- Recommendations reference genre context where relevant
-- No false positives during intentional level changes or solo windows
+- Genre profile loaded and applied to recommendation engine
+- Soundcheck mode produced actionable per-channel EQ recommendations
+- Manual adjustments detected via OSC poll diff
 - Show JSON log readable and complete post-show
-- **Target accuracy benchmark (Show 1):** 50%+ recommendations matched by manual adjustment
-- **Target blind spot benchmark (Show 1):** Engineer-initiated adjustments with no prior recommendation reviewed and used to improve engine by Show 2
+- LUFS recommendations fired correctly throughout 3-hour show
+
+### Phase 2 (June 13 Validation Show)
+- Forward model R² (predicted vs board RTA) > 0.70
+- Forward model R² (predicted vs mic) > 0.55
+- Input state events (solo onsets) confirmed by mic > 65%
+- Analysis cycles logged > 15,000 (full show coverage)
+- Geometry correction reduces systematic mic deviation at known comb notch frequencies
+- `cal` command completes within 5 seconds and updates instrument priors
+- HPF detection accurate using frequency-based inference (no false negatives)
+
+### Phase 2 (Activation — Show after June 13)
+- Channel-level recommendations activate if R² > 0.70 on June 13
+- Deficiency recommendations sequenced correctly (no simultaneous multi-channel boosts)
+- RTA investigation scans complete in <1 second and return to Main L/R correctly
+- No RTA state machine lockups (watchdog fires correctly if stuck >8s)
 
 ---
 

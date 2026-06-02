@@ -1,0 +1,58 @@
+venue:
+  name: "AJ's Bar"
+  id: "ajs_bar"
+  capacity: 200
+
+  stage:
+    type: "corner"
+    sub_type: null
+
+    room:
+      length_m: 12.5
+      width_m:  8.0
+      ceiling_height_m: 3.2
+      shape_notes: >
+        Partial wall divides stage area from bar side ~10ft high with cutout.
+        Corner stage — band plays in SW corner.
+
+    environment: null
+
+  pa:
+    config_type: "stereo_ground_stack"
+    crossover_hz: 100
+
+    top_left:
+      model: "QSC KW152"
+      position_x_m: 1.2
+      position_y_m: 0.0
+      height_m: 2.8
+
+    top_right:
+      model: "QSC KW152"
+      position_x_m: 6.8
+      position_y_m: 0.0
+      height_m: 2.8
+
+    sub_left:
+      model: "QSC KLA181-BK"
+      position_x_m: 1.2
+      position_y_m: 0.0
+      height_m: 0.0
+      boundary_loaded: true
+
+    sub_right:
+      model: "QSC KLA181-BK"
+      position_x_m: 6.8
+      position_y_m: 0.0
+      height_m: 0.0
+      boundary_loaded: true
+
+  reference_mic:
+    position_x_m: 4.0
+    position_y_m: 6.5
+    height_m: 1.5
+
+  pa_notes: >
+    House PA has significant low-end boost configured for DJ/hip-hop use.
+    Requires EXT SUB mode on KW152, sub attenuation pulled back, Kosmos off,
+    comp off, HPF engaged on Peavey. X32 presets were solid.

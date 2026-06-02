@@ -1,4 +1,4 @@
-"""DJI USB receiver audio capture with rolling buffer."""
+"""Audio capture — AT2035/PreSonus (primary), DJI Mic 2 (fallback), rolling buffer."""
 
 import threading
 from typing import Optional
@@ -7,8 +7,39 @@ import numpy as np
 import sounddevice as sd
 
 
+# Priority list for device detection — first match wins.
+DEVICE_PRIORITY = [
+    {'match': 'PreSonus', 'label': 'AT2035 via PreSonus Studio 26c'},
+    {'match': 'Studio 26', 'label': 'AT2035 via PreSonus Studio 26c'},
+    {'match': 'DJI',       'label': 'DJI Mic 2 USB Receiver'},
+    {'match': 'Wireless Microphone', 'label': 'DJI Wireless Microphone'},
+    {'match': 'CABLE',     'label': 'VB-Audio Virtual Cable (test mode)'},
+]
+
+
+def detect_audio_device() -> tuple:
+    """
+    Priority-based audio device detection. Returns (device_index, label, sample_rate).
+    Raises RuntimeError if no suitable device found.
+    """
+    devices = sd.query_devices()
+    for entry in DEVICE_PRIORITY:
+        for idx, dev in enumerate(devices):
+            if (entry['match'].lower() in dev['name'].lower()
+                    and dev['max_input_channels'] > 0):
+                return idx, entry['label'], int(dev['default_samplerate'])
+
+    raise RuntimeError(
+        "No suitable audio input device found.\n"
+        "Run with --devices to list available devices."
+    )
+
+
 class AudioCapture:
-    def __init__(self, device_name_match: str = "DJI", buffer_seconds: float = 2.0,
+    FFT_WINDOW_SECONDS = 0.5    # 500ms analysis window
+    LUFS_WINDOW_SECONDS = 3.0  # 3s LUFS integration window
+
+    def __init__(self, device_name_match: str = "", buffer_seconds: float = 3.0,
                  preferred_sample_rate: int = 48000,
                  forced_device_index: Optional[int] = None):
         self._match = device_name_match
@@ -26,47 +57,62 @@ class AudioCapture:
     # Public API
     # ------------------------------------------------------------------
 
-    def find_device(self) -> tuple[int, str, int]:
+    def find_device(self) -> tuple:
         """Return (index, name, sample_rate) for best matching input device.
 
-        When multiple devices match device_name_match, prefer the one whose
-        default_samplerate equals preferred_sample_rate.  Falls back to the
-        first match if none hit the preferred rate.
-
-        Raises RuntimeError with the full input device list if no match found.
+        When device_name_match is empty, uses priority detection (PreSonus > DJI > fallback).
+        When set, matches that string directly.
+        Raises RuntimeError if no match found.
         """
+        if not self._match:
+            try:
+                idx, label, sr = detect_audio_device()
+                return idx, label, sr
+            except RuntimeError:
+                pass
+
         devices = sd.query_devices()
-        matches = [
-            (i, dev) for i, dev in enumerate(devices)
-            if self._match.lower() in dev["name"].lower() and dev["max_input_channels"] > 0
-        ]
-        if matches:
-            preferred = [(i, dev) for i, dev in matches
-                         if int(dev["default_samplerate"]) == self._preferred_sr]
-            chosen_i, chosen_dev = preferred[0] if preferred else matches[0]
-            return chosen_i, chosen_dev["name"], int(chosen_dev["default_samplerate"])
+        if self._match:
+            matches = [
+                (i, dev) for i, dev in enumerate(devices)
+                if self._match.lower() in dev["name"].lower() and dev["max_input_channels"] > 0
+            ]
+            if matches:
+                preferred = [(i, dev) for i, dev in matches
+                             if int(dev["default_samplerate"]) == self._preferred_sr]
+                chosen_i, chosen_dev = preferred[0] if preferred else matches[0]
+                return chosen_i, chosen_dev["name"], int(chosen_dev["default_samplerate"])
 
         lines = [
             f"  [{i}] {d['name']}  — {int(d['default_samplerate'])}Hz, {d['max_input_channels']}ch in"
             for i, d in enumerate(devices) if d["max_input_channels"] > 0
         ]
         raise RuntimeError(
-            f"No audio input device matching '{self._match}' found.\n"
+            f"No audio input device matching '{self._match or 'any known device'}' found.\n"
             "Available input devices:\n" + "\n".join(lines)
         )
 
     def list_devices(self) -> str:
-        """Return a formatted string of all input devices (for --devices mode)."""
+        """Return a formatted string of all input devices, priority devices listed first."""
         devices = sd.query_devices()
-        lines = []
+        lines = ['Available audio input devices (priority devices marked):']
+        shown = set()
+        for entry in DEVICE_PRIORITY:
+            for i, dev in enumerate(devices):
+                if (entry['match'].lower() in dev['name'].lower()
+                        and dev['max_input_channels'] > 0 and i not in shown):
+                    lines.append(
+                        f"  [{i}] {dev['name']:<40} -- {int(dev['default_samplerate'])}Hz, "
+                        f"{dev['max_input_channels']}ch  <-- {entry['label']}"
+                    )
+                    shown.add(i)
         for i, dev in enumerate(devices):
-            if dev["max_input_channels"] > 0:
-                marker = "  <-- use this" if self._match.lower() in dev["name"].lower() else ""
+            if dev['max_input_channels'] > 0 and i not in shown:
                 lines.append(
                     f"  [{i}] {dev['name']:<40} -- {int(dev['default_samplerate'])}Hz, "
-                    f"{dev['max_input_channels']}ch{marker}"
+                    f"{dev['max_input_channels']}ch"
                 )
-        return "Available audio input devices:\n" + "\n".join(lines)
+        return "\n".join(lines)
 
     def start(self) -> None:
         """Find device (or use forced index) and start the audio stream as mono."""
@@ -83,7 +129,7 @@ class AudioCapture:
 
         self._stream = sd.InputStream(
             device=self._device_index,
-            channels=1,       # always mono — DJI receiver and reference mic are single-channel
+            channels=1,
             samplerate=self._sample_rate,
             dtype="float32",
             blocksize=int(self._sample_rate * 0.05),   # 50ms blocks
@@ -97,7 +143,7 @@ class AudioCapture:
             self._stream.close()
             self._stream = None
 
-    def get_buffer(self) -> tuple[np.ndarray, int]:
+    def get_buffer(self) -> tuple:
         """Return a copy of the rolling buffer and the current sample rate."""
         with self._lock:
             if self._buffer is None:
@@ -105,6 +151,17 @@ class AudioCapture:
             pos = self._write_pos
             buf = np.concatenate([self._buffer[pos:], self._buffer[:pos]])
             return buf.copy(), self._sample_rate
+
+    def get_analysis_window(self) -> np.ndarray:
+        """Return the most recent FFT_WINDOW_SECONDS of audio (500ms)."""
+        n = int(self.FFT_WINDOW_SECONDS * self._sample_rate)
+        buf, _ = self.get_buffer()
+        return buf[-n:] if len(buf) >= n else buf
+
+    def get_lufs_window(self) -> np.ndarray:
+        """Return the full 3-second LUFS integration buffer."""
+        buf, _ = self.get_buffer()
+        return buf
 
     @property
     def sample_rate(self) -> int:

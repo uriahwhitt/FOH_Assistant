@@ -272,23 +272,33 @@ class SetlistNavigator:
 def main() -> None:
     parser = argparse.ArgumentParser(description="FOH Assistant")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--show",       action="store_true", help="Live show advisory mode")
-    group.add_argument("--baseline",   action="store_true", help="Soundcheck / baseline mode")
-    group.add_argument("--soundcheck", action="store_true", help="Soundcheck advisory mode")
-    group.add_argument("--setup",      action="store_true", help="Pre-soundcheck X32 audit (one-shot)")
-    group.add_argument("--devices",    action="store_true", help="List audio input devices")
-    group.add_argument("--test-osc",   action="store_true", help="Test X32 connection")
+    group.add_argument("--show",        action="store_true", help="Live show advisory mode")
+    group.add_argument("--baseline",    action="store_true", help="Soundcheck / baseline mode")
+    group.add_argument("--soundcheck",  action="store_true", help="Soundcheck advisory mode")
+    group.add_argument("--setup",       action="store_true", help="Pre-soundcheck X32 audit (one-shot)")
+    group.add_argument("--setup-venue", action="store_true", help="Interactive venue geometry setup wizard")
+    group.add_argument("--devices",     action="store_true", help="List audio input devices")
+    group.add_argument("--test-osc",    action="store_true", help="Test X32 connection")
     parser.add_argument("--x32-ip",      help="Override X32 IP address")
     parser.add_argument("--device-index", type=int, default=None,
                         help="Force specific audio device by index (bypasses name matching)")
+    parser.add_argument("--venue",     default=None, help="Venue profile ID to load")
+    parser.add_argument("--no-venue",  action="store_true", help="Disable venue profile loading")
+    parser.add_argument("--log-level", default=None, help="Logging level: minimal, summary, full")
     args = parser.parse_args()
+
+    # --setup-venue — no config needed
+    if args.setup_venue:
+        from core.geometry import run_setup_venue_wizard
+        run_setup_venue_wizard()
+        return
 
     # --devices — no config needed
     if args.devices:
         band_cfg = load_band_config()
         audio_cfg = band_cfg["audio"]
         audio = AudioCapture(
-            device_name_match=audio_cfg["device_name_match"],
+            device_name_match=audio_cfg.get("device_name_match", ""),
             preferred_sample_rate=audio_cfg.get("preferred_sample_rate", 48000),
         )
         print(audio.list_devices())
@@ -324,8 +334,8 @@ def main() -> None:
     # Initialize audio
     audio_cfg = band_cfg["audio"]
     capture = AudioCapture(
-        device_name_match=audio_cfg["device_name_match"],
-        buffer_seconds=audio_cfg.get("buffer_seconds", 2.0),
+        device_name_match=audio_cfg.get("device_name_match", ""),
+        buffer_seconds=audio_cfg.get("buffer_seconds", 3.0),
         preferred_sample_rate=audio_cfg.get("preferred_sample_rate", 48000),
         forced_device_index=args.device_index,
     )
@@ -355,11 +365,14 @@ def main() -> None:
 
     # Session logger
     mode_label = "baseline" if args.baseline else ("soundcheck" if args.soundcheck else "show")
+    log_cfg   = band_cfg.get("logging", {})
+    log_level = args.log_level or log_cfg.get("level", "summary")
     logger = SessionLogger(
         band_name=band_cfg["band"],
         mode=mode_label,
         x32_ip=x32_ip,
         genre_default=default_genre,
+        log_level=log_level,
     )
 
     # Print session header
@@ -376,8 +389,51 @@ def main() -> None:
                             osc, capture, analyzer, logger, channels,
                             check_hpf, check_gain_staging, check_compressor_sanity)
     else:
+        from core.geometry import (load_venue_profile, IrregularRoomAcoustics, print_geometry_report)
+        from core.mic_analyzer import MicAnalyzer, SpectrumHistory
+        from core.forward_model import ForwardModel
+        from core.channel_model import InstrumentPrior
+
+        venue_id = args.venue or band_cfg.get("default_venue")
+        if venue_id and not getattr(args, 'no_venue', False):
+            try:
+                venue_profile = load_venue_profile(venue_id)
+                venue_acoustics = venue_profile.acoustics
+                logger.log_venue_session_start(venue_profile)
+                print_geometry_report(venue_profile)
+            except Exception as e:
+                print(f"[WARNING] Could not load venue '{venue_id}': {e}")
+                venue_acoustics = IrregularRoomAcoustics({})
+                logger.log_warning(f"Venue load failed: {e}")
+        else:
+            venue_acoustics = IrregularRoomAcoustics({})
+            if not getattr(args, 'no_venue', False):
+                logger.log_warning("No venue profile — acoustic corrections disabled")
+
+        mic_analyzer = MicAnalyzer(venue_acoustics)
+        forward_model = ForwardModel(venue_acoustics)
+        spectrum_history = SpectrumHistory()
+
+        prior_configs = band_cfg.get('instrument_priors', {})
+        instrument_priors = {}
+        for ch_num, ch_cfg in band_cfg['channels'].items():
+            ch_num_int = int(ch_num)
+            instr_type = ch_cfg.get('instrument_type', 'guitar') if isinstance(ch_cfg, dict) else 'guitar'
+            prior_data = prior_configs.get(instr_type, {})
+            instrument_priors[ch_num_int] = InstrumentPrior(instr_type, prior_data)
+
+        from core.rta_engine import RTAEngine
+        osc.build_channel_configs()
+        osc.set_rta_position(post_eq=True)
+        rta_engine = RTAEngine(osc)
+        rta_engine.set_main_bus()
+        print("RTA: monitoring Main L/R post-EQ")
+
         run_show_mode(band_cfg, active_genre, profiles, setlist,
-                      osc, capture, analyzer, logger, channels)
+                      osc, capture, analyzer, logger, channels,
+                      mic_analyzer=mic_analyzer, forward_model=forward_model,
+                      spectrum_history=spectrum_history, instrument_priors=instrument_priors,
+                      rta_engine=rta_engine)
 
     capture.stop()
     osc.close()
@@ -389,7 +445,10 @@ def main() -> None:
 
 def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                   osc: X32OSCClient, capture: AudioCapture, analyzer: Analyzer,
-                  logger: SessionLogger, initial_channels: dict) -> None:
+                  logger: SessionLogger, initial_channels: dict,
+                  mic_analyzer=None, forward_model=None,
+                  spectrum_history=None, instrument_priors=None,
+                  rta_engine=None) -> None:
     from types import SimpleNamespace
     from core.ambient import AmbientCapture
 
@@ -419,6 +478,7 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
     print("  n = next song     e = end song early   p = print setlist")
     print("  a = ambient capture   skip = skip song   sw{N} = swap slot N")
     print("  n{N} = jump to slot N   n-1 = go back   add = add song")
+    print("  cal = cal scan (live)   iso <n> = iso sample for channel N")
     print("  ins = insert alternate as next song   break = set break mode\n")
 
     kb_queue: list = []
@@ -548,6 +608,8 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
             cycle_start = time.time()
 
             current_channels = osc.build_channel_states()
+            if rta_engine is not None:
+                rta_engine.check_watchdog()
 
             adjustments = logger.detect_and_log_adjustments(
                 prev_channels, current_channels, thresholds
@@ -560,8 +622,35 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
             analysis = analyzer.analyze(audio_buf)
             logger.record_lufs(analysis.lufs)
 
+            # Phase 2 mic analysis runs first so mic_result is available for the recommender
+            mic_result = None
+            if mic_analyzer is not None and forward_model is not None:
+                if osc._config_dirty:
+                    osc.update_dirty_configs()
+                mic_result   = mic_analyzer.analyze(capture)
+                board_rta_db = osc.board_rta_db
+                ch_configs   = osc.channel_configs
+                ch_meters    = osc.channel_meters
+                if spectrum_history is not None:
+                    spectrum_history.push(mic_result)
+                fm_result = forward_model.run(
+                    channel_configs=ch_configs, channel_meters=ch_meters,
+                    channel_priors=instrument_priors or {},
+                    mic_analysis=mic_result, board_rta_db=board_rta_db,
+                )
+                if band_cfg.get('logging', {}).get('analysis_cycle', True):
+                    logger.log_analysis_cycle(fm_result, mic_result)
+                for ch_num, meter in ch_meters.items():
+                    if (meter.input_state == 'solo_onset' and
+                            meter.prev_input_state not in ('solo_onset', 'solo_active')):
+                        pre_spectrum = (spectrum_history.get_snapshot_before(
+                            meter.timestamp_ms, offset_ms=500.0) if spectrum_history else None)
+                        characterization = mic_analyzer.characterize_input_event(
+                            pre_spectrum, mic_result.smoothed_spectrum_db)
+                        logger.log_input_state_event(ch_num, meter.prev_input_state, meter.input_state, meter, characterization)
+
             if not st.in_set_break:
-                recs = engine.evaluate(analysis, current_channels)
+                recs = engine.evaluate(analysis, current_channels, mic_analysis=mic_result)
                 for rec in recs:
                     logger.log_recommendation(rec)
                     print(rec.format_terminal())
@@ -698,6 +787,57 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                     st.pending_cmd = "ambient_type"
                     print("\nCapture type — empty room (e) or crowd break (c)?")
 
+                elif cmd == "cal":
+                    if rta_engine is None:
+                        print("\nCAL: RTA engine not available.")
+                    elif mic_result is not None and mic_result.is_silent:
+                        print("\nCAL: band not playing — trigger during a verse or chorus")
+                    elif not rta_engine.is_available:
+                        print("\nCAL: RTA busy — try again in a moment")
+                    else:
+                        active = [cfg for cfg in osc.channel_configs.values()
+                                  if not cfg.muted]
+                        if len(active) < 4:
+                            print(f"\nCAL: only {len(active)} active channels — need 4+ for meaningful calibration")
+                        else:
+                            scan_results, prior_updates = rta_engine.run_cal_scan(
+                                active, forward_model, mic_analyzer, instrument_priors or {}
+                            )
+                            if scan_results:
+                                print_cal_report(scan_results, prior_updates)
+                                logger.log_event("CAL_SCAN",
+                                                 detail=f"channels={len(scan_results)} updates={len(prior_updates)}")
+
+                elif cmd.startswith("iso"):
+                    if rta_engine is None:
+                        print("\nISO: RTA engine not available.")
+                    elif not rta_engine.is_available:
+                        print("\nISO: RTA busy — try again in a moment")
+                    else:
+                        parts = cmd.split()
+                        ch_num = None
+                        if len(parts) == 2 and parts[1].isdigit():
+                            ch_num = int(parts[1])
+                        else:
+                            configs = osc.channel_configs
+                            if configs:
+                                print("\nAvailable channels:")
+                                for n, cfg in sorted(configs.items()):
+                                    print(f"  {n:>2}: {cfg.label} ({cfg.instrument_type})")
+                                raw = input("Channel number: ").strip()
+                                ch_num = int(raw) if raw.isdigit() else None
+                        if ch_num and ch_num in osc.channel_configs:
+                            sample_result, prior_updates = rta_engine.run_iso_sample(
+                                ch_num, osc.channel_configs[ch_num],
+                                forward_model, mic_analyzer, instrument_priors or {}
+                            )
+                            if sample_result:
+                                print_iso_report(sample_result, prior_updates)
+                                logger.log_event("ISO_SAMPLE",
+                                                 detail=f"channel={ch_num} updates={len(prior_updates)}")
+                        elif ch_num is not None:
+                            print(f"\nISO: channel {ch_num} not in channel map")
+
                 elif cmd == "skip":
                     if not st.song_active:
                         print("\nNo song currently active.")
@@ -796,13 +936,15 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                             pass
 
             elapsed = time.time() - cycle_start
-            time.sleep(max(0, 1.0 - elapsed))
+            time.sleep(max(0, 0.5 - elapsed))
 
     except KeyboardInterrupt:
         pass
     finally:
         if st.song_active:
             logger.log_song_end()
+        if forward_model is not None:
+            logger.log_session_summary()
         print(f"\n{SEP}")
         print(logger.generate_report())
 
@@ -1057,6 +1199,32 @@ def run_test_osc(band_cfg: dict, profiles: dict, x32_ip: str, x32_port: int, gen
               f"{ch.rms_db:>7.1f}dBFS  Band2: {eq2.gain_db:+.1f}dB @ {eq2.freq_hz:.0f}Hz")
 
     print(f"\nMain LR fader: {main_db:+.1f}dB")
+
+    # Phase 2 — build channel configs with transfer curves
+    print("\nBuilding Phase 2 channel configs (transfer curves)...")
+    try:
+        configs = osc.build_channel_configs()
+        print(f"\n{'CH':>3}  {'Label':<20} {'Instrument':<14} {'HPF':>8}  {'EQ':>6}  {'Curve'}")
+        print("-" * 65)
+        for ch_num in sorted(configs):
+            cfg = configs[ch_num]
+            hpf_str = f"{cfg.hpf_freq_hz:.0f}Hz/{cfg.hpf_slope_db_oct}dB" if cfg.hpf_enabled else "off"
+            eq_str  = "on" if cfg.eq_enabled else "bypass"
+            tc_str  = "ready" if cfg.transfer_curve_db is not None else "NONE"
+            print(f"  {ch_num:>2}  {cfg.label:<20} {cfg.instrument_type:<14} {hpf_str:>8}  {eq_str:>6}  {tc_str}")
+        print(f"\nPhase 2 channel configs: {len(configs)} channels with transfer curves")
+    except Exception as e:
+        print(f"  Phase 2 config build failed: {e}")
+
+    # Phase 2 — check board_rta_db from /meters/15
+    import time as _time
+    _time.sleep(0.6)   # allow /meters/15 subscription to deliver a packet
+    rta = osc.board_rta_db
+    if rta.max() > -89.0:
+        print(f"\nboard_rta_db (/meters/15): 100 bands received  [{rta.min():.1f} to {rta.max():.1f} dBFS]")
+    else:
+        print(f"\nboard_rta_db (/meters/15): waiting for data (emulator may not push RTA)")
+
     osc.close()
 
 
@@ -1068,7 +1236,7 @@ def print_header(band_cfg, mode, genre, x32_ip, x32_port,
                  device_name, log_path, setlist) -> None:
     mode_label = mode.upper()
     print(SEP)
-    print(f"FOH ASSISTANT v{VERSION} -- Phase 1")
+    print(f"FOH ASSISTANT v{VERSION} -- Phase 2")
     print(f"Band:    {band_cfg['band']}")
     print(f"Mode:    {mode_label}")
     print(f"Genre:   {genre.id}")
@@ -1143,6 +1311,65 @@ def print_baseline_drift(channels: dict, engine: RecommendationEngine) -> None:
         flag = " <-- DRIFT" if abs(drift) >= 2.0 else ""
         print(f"  {ch.label:<18} {drift:>+6.1f}dB from soundcheck{flag}")
     print()
+
+
+def print_cal_report(results: list, prior_updates: list) -> None:
+    from datetime import datetime
+    from core.rta_engine import CAL_ALPHA
+    print("━" * 60)
+    print(f"CAL SCAN — {datetime.now().strftime('%H:%M:%S')} — {len(results)} channels")
+    print("━" * 60)
+    has_findings = False
+    for r in results:
+        ch = r.get('channel')
+        label = getattr(ch, 'label', r.get('channel', '?'))
+        for band, data in r.get('bands', {}).items():
+            if abs(data['deviation']) < 1.5:
+                continue
+            has_findings = True
+            sym = '✗' if data['status'] == 'significant' else '⚠'
+            print(f"  {sym}  {label:<18} {band:<12} "
+                  f"predicted {data['predicted']:>+6.1f}dB  "
+                  f"actual {data['actual']:>+6.1f}dB  "
+                  f"dev {data['deviation']:>+5.1f}dB")
+    if not has_findings:
+        print("  All channels within ±1.5dB of prediction — model tracking well")
+    if prior_updates:
+        print()
+        print(f"  Prior updates (α={CAL_ALPHA}):")
+        for u in prior_updates:
+            print(f"    {u['instrument']:<16} {u['band']:<12} "
+                  f"{u['old']:>+6.2f} → {u['new']:>+6.2f}dB")
+    print("━" * 60)
+
+
+def print_iso_report(result: dict, prior_updates: list) -> None:
+    if not result:
+        return
+    print("━" * 60)
+    print(f"ISO SAMPLE — {result['channel']} ({result['instrument_type']}) "
+          f"— {result['duration_s']:.0f}s")
+    print("━" * 60)
+    has_findings = False
+    for band in result.get('board_vs_prior', {}):
+        bv = result['board_vs_prior'][band]
+        mv = result['mic_vs_prior'][band]
+        if abs(bv) < 0.5 and abs(mv) < 0.5:
+            continue
+        has_findings = True
+        flag = '  ⚠ prior under/over-predicts' if (abs(bv) > 1.5 or abs(mv) > 1.5) else ''
+        print(f"  {band:<12} board vs prior {bv:>+6.1f}dB  "
+              f"mic vs prior {mv:>+6.1f}dB{flag}")
+    if not has_findings:
+        print("  All bands within ±0.5dB of prior — prior is accurate")
+    if prior_updates:
+        print()
+        from core.rta_engine import ISO_ALPHA
+        print(f"  Prior updates (α={ISO_ALPHA}):")
+        for u in prior_updates:
+            print(f"    {u['instrument']:<16} {u['band']:<12} "
+                  f"{u['old']:>+6.2f} → {u['new']:>+6.2f}dB")
+    print("━" * 60)
 
 
 if __name__ == "__main__":

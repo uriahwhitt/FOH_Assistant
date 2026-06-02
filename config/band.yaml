@@ -8,45 +8,53 @@ x32:
   keepalive_interval_s: 8
 
 audio:
-  device_name_match: "Wireless Microphone RX"
+  device_name_match: ""
   preferred_sample_rate: 48000
   channels: 1
-  buffer_seconds: 2
+  buffer_seconds: 3
 
 channels:
   1:
     label: "Kick"
     type: instrument
+    instrument_type: kick
   4:
     label: "Drum Rack"
     type: instrument
+    instrument_type: overhead
     notes: "Toms"
   5:
     label: "Floor Tom"
     type: instrument
+    instrument_type: overhead
   6:
     label: "Acoustic Guitar"
     type: instrument
+    instrument_type: guitar
     paired_channel: 15
     notes: "Ken's alternate — active on songs where keys not needed, muted otherwise"
   7:
     label: "Guitar 1"
     type: instrument
+    instrument_type: guitar
     role: shared_lead_rhythm
     notes: "Trades lead/solo with Guitar 2 — solo suppression applies to either"
   8:
     label: "Guitar 2"
     type: instrument
+    instrument_type: guitar
     role: shared_lead_rhythm
     notes: "Trades lead/solo with Guitar 1 — solo suppression applies to either"
   9:
     label: "Lead Vocal"
     type: vocal
+    instrument_type: vocal_lead
     usage: primary_lead
     priority: very_high
   10:
     label: "Drum Vocal"
     type: vocal
+    instrument_type: vocal_bkg
     usage: sparse
     inactive_threshold_db: -35
     lead_songs: ["Fight for Your Right"]
@@ -54,6 +62,7 @@ channels:
   11:
     label: "Bassist Vocal"
     type: vocal
+    instrument_type: vocal_bkg
     usage: backup_and_lead
     inactive_threshold_db: -35
     lead_songs: ["Kryptonite", "Sharp Dressed Man", "Fire"]
@@ -61,6 +70,7 @@ channels:
   12:
     label: "Keys Vocal"
     type: vocal
+    instrument_type: vocal_bkg
     usage: backup_and_lead
     inactive_threshold_db: -35
     lead_songs: ["Can't Get Enough", "Gimme Three Steps", "Lay Down Sally", "Lonely Ole Night", "Blister in the Sun"]
@@ -68,9 +78,11 @@ channels:
   13:
     label: "Bass"
     type: instrument
+    instrument_type: bass_di
   15:
     label: "Keys"
     type: instrument
+    instrument_type: keys
     paired_channel: 6
     notes: "Primary instrument — muted when Ken plays acoustic on ch 6"
 
@@ -137,6 +149,271 @@ band_overrides:
   Heavy Metal:
     frequency_targets:
       high_mid: +3
+
+logging:
+  level: full
+  analysis_cycle: true
+
+default_venue: null
+
+instrument_priors:
+  kick:
+    normal:
+      curve:
+        - [50,   -6.0]
+        - [80,   -3.0]
+        - [100,  -5.0]
+        - [200, -10.0]
+        - [500, -16.0]
+        - [1000,-20.0]
+        - [2000,-18.0]
+        - [4000,-22.0]
+        - [8000,-28.0]
+        - [16000,-35.0]
+
+  snare:
+    normal:
+      curve:
+        - [80,  -10.0]
+        - [150,  -6.0]
+        - [200,  -4.0]
+        - [400,  -8.0]
+        - [1000, -8.0]
+        - [2000, -6.0]
+        - [5000, -4.0]
+        - [8000, -8.0]
+        - [12000,-12.0]
+        - [16000,-18.0]
+
+  overhead:
+    normal:
+      curve:
+        - [80,  -18.0]
+        - [150, -12.0]
+        - [300,  -8.0]
+        - [600,  -6.0]
+        - [1200, -5.0]
+        - [2500, -4.0]
+        - [5000, -3.0]
+        - [8000, -4.0]
+        - [12000, -5.0]
+        - [16000, -8.0]
+
+  guitar:
+    normal:
+      curve:
+        - [80,  -20.0]
+        - [150, -12.0]
+        - [250,  -6.0]
+        - [500,  -4.0]
+        - [1000, -5.0]
+        - [2000, -4.0]
+        - [4000, -5.0]
+        - [8000,-10.0]
+        - [12000,-15.0]
+        - [16000,-22.0]
+    solo_onset:
+      curve:
+        - [80,  -22.0]
+        - [150, -14.0]
+        - [250,  -7.0]
+        - [500,  -5.0]
+        - [1000, -4.0]
+        - [2000, -3.0]
+        - [4000, -4.0]
+        - [8000, -9.0]
+        - [12000,-14.0]
+        - [16000,-21.0]
+    solo_active:
+      curve:
+        - [80,  -24.0]
+        - [150, -16.0]
+        - [250,  -8.0]
+        - [500,  -5.0]
+        - [1000, -3.0]
+        - [2000, -2.0]
+        - [4000, -3.0]
+        - [8000, -8.0]
+        - [12000,-13.0]
+        - [16000,-20.0]
+    clean:
+      curve:
+        - [80,  -18.0]
+        - [150, -10.0]
+        - [250,  -5.0]
+        - [500,  -3.0]
+        - [1000, -4.0]
+        - [2000, -5.0]
+        - [4000, -6.0]
+        - [8000,-11.0]
+        - [12000,-16.0]
+        - [16000,-23.0]
+    heavy:
+      curve:
+        - [80,  -20.0]
+        - [150, -11.0]
+        - [250,  -5.0]
+        - [500,  -6.0]
+        - [1000, -7.0]
+        - [2000, -5.0]
+        - [4000, -4.0]
+        - [8000,-10.0]
+        - [12000,-16.0]
+        - [16000,-24.0]
+
+  guitar_lead:
+    normal:
+      curve:
+        - [80,  -22.0]
+        - [150, -14.0]
+        - [250,  -7.0]
+        - [500,  -5.0]
+        - [1000, -4.0]
+        - [2000, -3.0]
+        - [4000, -4.0]
+        - [8000, -9.0]
+        - [12000,-14.0]
+        - [16000,-21.0]
+    solo_onset:
+      curve:
+        - [80,  -24.0]
+        - [150, -16.0]
+        - [250,  -8.0]
+        - [500,  -5.0]
+        - [1000, -3.0]
+        - [2000, -2.0]
+        - [4000, -3.0]
+        - [8000, -8.0]
+        - [12000,-13.0]
+        - [16000,-20.0]
+    solo_active:
+      curve:
+        - [80,  -26.0]
+        - [150, -18.0]
+        - [250,  -9.0]
+        - [500,  -5.0]
+        - [1000, -2.0]
+        - [2000, -1.0]
+        - [4000, -2.0]
+        - [8000, -7.0]
+        - [12000,-12.0]
+        - [16000,-19.0]
+
+  bass_di:
+    normal:
+      curve:
+        - [40,   -8.0]
+        - [80,   -4.0]
+        - [120,  -3.0]
+        - [200,  -6.0]
+        - [500, -12.0]
+        - [1000,-16.0]
+        - [2000,-18.0]
+        - [4000,-22.0]
+        - [8000,-28.0]
+        - [16000,-35.0]
+    slap:
+      curve:
+        - [40,  -10.0]
+        - [80,   -5.0]
+        - [120,  -4.0]
+        - [200,  -7.0]
+        - [500, -10.0]
+        - [1000,-12.0]
+        - [2000,-14.0]
+        - [4000,-18.0]
+        - [8000,-24.0]
+        - [16000,-32.0]
+    picked:
+      curve:
+        - [40,   -9.0]
+        - [80,   -5.0]
+        - [120,  -4.0]
+        - [200,  -7.0]
+        - [500, -11.0]
+        - [1000,-13.0]
+        - [2000,-14.0]
+        - [4000,-16.0]
+        - [8000,-22.0]
+        - [16000,-30.0]
+
+  vocal_lead:
+    normal:
+      curve:
+        - [80,  -18.0]
+        - [150, -10.0]
+        - [250,  -6.0]
+        - [500,  -4.0]
+        - [1000, -3.0]
+        - [2000, -4.0]
+        - [4000, -5.0]
+        - [8000, -9.0]
+        - [12000,-13.0]
+        - [16000,-20.0]
+    belting:
+      curve:
+        - [80,  -20.0]
+        - [150, -12.0]
+        - [250,  -7.0]
+        - [500,  -4.0]
+        - [1000, -2.0]
+        - [2000, -3.0]
+        - [4000, -4.0]
+        - [8000, -8.0]
+        - [12000,-12.0]
+        - [16000,-19.0]
+
+  vocal_bkg:
+    normal:
+      curve:
+        - [80,  -20.0]
+        - [150, -12.0]
+        - [250,  -8.0]
+        - [500,  -6.0]
+        - [1000, -5.0]
+        - [2000, -6.0]
+        - [4000, -8.0]
+        - [8000,-12.0]
+        - [12000,-16.0]
+        - [16000,-24.0]
+
+  keys:
+    normal:
+      curve:
+        - [80,  -14.0]
+        - [150,  -8.0]
+        - [250,  -5.0]
+        - [500,  -4.0]
+        - [1000, -4.0]
+        - [2000, -5.0]
+        - [4000, -7.0]
+        - [8000,-11.0]
+        - [12000,-16.0]
+        - [16000,-22.0]
+    pad:
+      curve:
+        - [80,  -16.0]
+        - [150, -10.0]
+        - [250,  -7.0]
+        - [500,  -5.0]
+        - [1000, -5.0]
+        - [2000, -6.0]
+        - [4000, -8.0]
+        - [8000,-12.0]
+        - [12000,-17.0]
+        - [16000,-24.0]
+    lead:
+      curve:
+        - [80,  -18.0]
+        - [150, -10.0]
+        - [250,  -5.0]
+        - [500,  -3.0]
+        - [1000, -3.0]
+        - [2000, -4.0]
+        - [4000, -5.0]
+        - [8000,-10.0]
+        - [12000,-15.0]
+        - [16000,-21.0]
 
 thresholds:
   recommendation_trigger_db: 3.0

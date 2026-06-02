@@ -7,6 +7,7 @@ Usage:
 """
 
 import argparse
+import json
 import math
 import sys
 import time
@@ -27,14 +28,85 @@ ANALYSIS_CHUNK_S = 1.0          # analyze 1s at a time
 REC_MATCH_WINDOW_S = 120        # rec within 2min of ground truth adjustment = potential match
 
 
+def run_show_log_validation(log_path: str, full_report: bool = False) -> None:
+    """Validate a show log JSON from Phase 2 session."""
+    with open(log_path, "r", encoding="utf-8") as f:
+        doc = json.load(f)
+    events = doc.get("events", [])
+
+    # Count ANALYSIS_CYCLE events
+    cycle_events = [e for e in events if e.get("type") == "ANALYSIS_CYCLE"]
+    n_cycles = len(cycle_events)
+
+    # Extract r_squared_board values
+    r2_board_vals = [e["r_squared_board"] for e in cycle_events
+                     if e.get("r_squared_board") is not None]
+    mean_r2_board = float(np.mean(r2_board_vals)) if r2_board_vals else None
+
+    # Input state events
+    input_events = [e for e in events if e.get("type") == "INPUT_STATE_EVENT"]
+    n_input = len(input_events)
+    n_mic_confirmed = sum(1 for e in input_events if e.get("mic_confirmed"))
+    confirm_rate = (n_mic_confirmed / n_input) if n_input > 0 else None
+
+    # Systematic deviation by band across all cycles
+    band_devs: dict[str, list] = {}
+    for e in cycle_events:
+        for band, data in (e.get("deviation_by_band") or {}).items():
+            band_devs.setdefault(band, []).append(data.get("deviation_db", 0.0))
+    band_summary = {b: round(float(np.mean(vals)), 2) for b, vals in band_devs.items() if vals}
+
+    # PASS/FAIL criteria
+    coverage_ok = n_cycles >= 15000
+    r2_ok       = mean_r2_board is not None and mean_r2_board >= 0.70
+    confirm_ok  = confirm_rate is None or confirm_rate >= 0.60
+
+    overall = "PASS" if (coverage_ok and r2_ok and confirm_ok) else "FAIL"
+
+    print(f"\n{SEP}")
+    print("FOH ASSISTANT -- SHOW LOG VALIDATION")
+    print(f"Log: {log_path}")
+    print(SEP)
+    print(f"\nCOVERAGE")
+    print(f"  Analysis cycles:      {n_cycles:>8}  (target >= 15000)  {'OK' if coverage_ok else 'FAIL'}")
+    print(f"\nFORWARD MODEL ACCURACY")
+    if mean_r2_board is not None:
+        print(f"  Mean R² (board):      {mean_r2_board:>8.4f}  (target >= 0.70)   {'OK' if r2_ok else 'FAIL'}")
+        print(f"  R² samples:           {len(r2_board_vals):>8}")
+    else:
+        print(f"  Mean R² (board):           n/a  (no data)")
+    print(f"\nINPUT STATE EVENTS")
+    print(f"  Total events:         {n_input:>8}")
+    print(f"  Mic confirmed:        {n_mic_confirmed:>8}")
+    if confirm_rate is not None:
+        print(f"  Confirmation rate:    {confirm_rate:>8.1%}  (target >= 60%)    {'OK' if confirm_ok else 'FAIL'}")
+    else:
+        print(f"  Confirmation rate:         n/a")
+    if band_summary:
+        print(f"\nSYSTEMATIC DEVIATION BY BAND (mean dB)")
+        for band, dev in sorted(band_summary.items(), key=lambda x: abs(x[1]), reverse=True):
+            flag = " <-- review" if abs(dev) >= 3.0 else ""
+            print(f"  {band:<14} {dev:>+7.2f}dB{flag}")
+    print(f"\nVERDICT: {overall}")
+    print(SEP)
+
+
 def main():
     parser = argparse.ArgumentParser(description="FOH Assistant Offline Validator")
-    parser.add_argument("--audio",        required=True,  help="Audio file path (MP3/WAV/FLAC)")
-    parser.add_argument("--genre",        required=True,  help="Genre profile ID (e.g. 'Glam Metal')")
+    parser.add_argument("--audio",        default=None,   help="Audio file path (MP3/WAV/FLAC)")
+    parser.add_argument("--genre",        default=None,   help="Genre profile ID (e.g. 'Glam Metal')")
     parser.add_argument("--board",        default=None,   help="Simulator scenario YAML for initial board state")
     parser.add_argument("--ground-truth", default=None,   help="Ground truth adjustments YAML")
     parser.add_argument("--summary-only", action="store_true", help="Print only the summary report")
+    parser.add_argument("--show-log",     default=None,   help="Path to show log JSON for Phase 2 validation")
+    parser.add_argument("--report",       action="store_true", help="Print full report details")
     args = parser.parse_args()
+
+    if args.show_log:
+        run_show_log_validation(args.show_log, args.report)
+        return
+    if not args.audio or not args.genre:
+        parser.error("--audio and --genre are required")
 
     # Load config
     band_cfg = load_band_config()
