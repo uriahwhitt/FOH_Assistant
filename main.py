@@ -277,6 +277,8 @@ def main() -> None:
     group.add_argument("--soundcheck",  action="store_true", help="Soundcheck advisory mode")
     group.add_argument("--setup",       action="store_true", help="Pre-soundcheck X32 audit (one-shot)")
     group.add_argument("--setup-venue", action="store_true", help="Interactive venue geometry setup wizard")
+    group.add_argument('--settings',   action='store_true',
+                       help='Open settings menu (venue, session, mic placement)')
     group.add_argument("--devices",     action="store_true", help="List audio input devices")
     group.add_argument("--test-osc",    action="store_true", help="Test X32 connection")
     parser.add_argument("--x32-ip",      help="Override X32 IP address")
@@ -295,6 +297,16 @@ def main() -> None:
         run_setup_venue_wizard()
         return
 
+    # --settings — standalone settings menu, no audio/OSC needed
+    if args.settings:
+        from core.settings import SettingsMenu
+        from models.session import SessionConfig
+        session_cfg = SessionConfig.load()
+        if args.venue:
+            session_cfg.venue_id = args.venue
+        SettingsMenu(session=session_cfg, running_show=False).run()
+        return
+
     # --devices — no config needed
     if args.devices:
         band_cfg = load_band_config()
@@ -311,9 +323,17 @@ def main() -> None:
     profiles = apply_band_overrides(load_genre_profiles(), band_cfg)
     setlist = load_setlist()
 
+    # Load session — provides IP, venue, and mic distances for show/soundcheck modes
+    from models.session import SessionConfig
+    session_cfg = SessionConfig.load()
+
     x32_cfg = band_cfg["x32"]
-    x32_ip = args.x32_ip or x32_cfg["ip"]
-    x32_port = x32_cfg["port"]
+    # CLI flag > session file > band.yaml
+    x32_ip = args.x32_ip or session_cfg.x32_ip or x32_cfg["ip"]
+    x32_port = session_cfg.x32_port if session_cfg.x32_ip else x32_cfg["port"]
+    # CLI --venue > session venue_id > band.yaml default
+    if not args.venue and session_cfg.venue_id:
+        args.venue = session_cfg.venue_id
     default_genre = band_cfg.get("default_genre", "Glam Metal")
 
     if default_genre not in profiles:
@@ -399,7 +419,7 @@ def main() -> None:
         venue_id = args.venue or band_cfg.get("default_venue")
         if venue_id and not getattr(args, 'no_venue', False):
             try:
-                venue_profile = load_venue_profile(venue_id)
+                venue_profile = load_venue_profile(venue_id, session=session_cfg)
                 venue_acoustics = venue_profile.acoustics
                 logger.log_venue_session_start(venue_profile)
                 print_geometry_report(venue_profile)
@@ -444,7 +464,8 @@ def main() -> None:
                       osc, capture, analyzer, logger, channels,
                       mic_analyzer=mic_analyzer, forward_model=forward_model,
                       spectrum_history=spectrum_history, instrument_priors=instrument_priors,
-                      rta_engine=rta_engine, display_buffer=display_buffer)
+                      rta_engine=rta_engine, display_buffer=display_buffer,
+                      session_cfg=session_cfg, venue_id=venue_id)
 
     capture.stop()
     osc.close()
@@ -459,7 +480,8 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                   logger: SessionLogger, initial_channels: dict,
                   mic_analyzer=None, forward_model=None,
                   spectrum_history=None, instrument_priors=None,
-                  rta_engine=None, display_buffer=None) -> None:
+                  rta_engine=None, display_buffer=None,
+                  session_cfg=None, venue_id=None) -> None:
     from types import SimpleNamespace
     from core.ambient import AmbientCapture
 
@@ -490,7 +512,8 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
     print("  a = ambient capture   skip = skip song   sw{N} = swap slot N")
     print("  n{N} = jump to slot N   n-1 = go back   add = add song")
     print("  cal = cal scan (live)   iso <n> = iso sample for channel N")
-    print("  ins = insert alternate as next song   break = set break mode\n")
+    print("  ins = insert alternate as next song   break = set break mode")
+    print("  settings = open settings menu (mic placement, X32 IP, etc.)\n")
 
     kb_queue: list = []
     def kb_listener():
@@ -876,6 +899,27 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                         elif ch_num is not None:
                             print(f"\nISO: channel {ch_num} not in channel map")
 
+                elif cmd == "settings":
+                    from core.settings import SettingsMenu
+                    from core.geometry import load_venue_profile
+                    menu = SettingsMenu(session=session_cfg, running_show=True)
+                    updated = menu.run()
+                    if (updated.mic_placement.has_distances and
+                            updated.mic_placement.speaker_l_to_mic !=
+                            session_cfg.mic_placement.speaker_l_to_mic):
+                        try:
+                            new_profile = load_venue_profile(
+                                updated.venue_id or venue_id or '', session=updated
+                            )
+                            if mic_analyzer is not None:
+                                mic_analyzer.venue_acoustics     = new_profile.acoustics
+                                mic_analyzer.correction_curve_db = new_profile.acoustics.mic_correction_curve()
+                                mic_analyzer.room_mode_mask_arr  = new_profile.acoustics.room_mode_mask()
+                            print("[SETTINGS] Geometry reloaded with updated mic distances")
+                        except Exception as e:
+                            print(f"[SETTINGS] Could not reload geometry: {e}")
+                    session_cfg = updated
+
                 elif cmd == "skip":
                     if not st.song_active:
                         print("\nNo song currently active.")
@@ -984,6 +1028,8 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
         if forward_model is not None:
             logger.log_session_summary()
         _stop_display_path()
+        if session_cfg is not None:
+            session_cfg.archive()
         print(f"\n{SEP}")
         print(logger.generate_report())
 
@@ -1078,6 +1124,11 @@ def run_soundcheck_mode(band_cfg: dict, genre, profiles: dict, setlist,
                     print_board_state(current_channels)
                 elif cmd == "g":
                     print_room_analysis(analysis, genre)
+                elif cmd == "settings":
+                    from core.settings import SettingsMenu
+                    from models.session import SessionConfig
+                    sc = SessionConfig.load()
+                    SettingsMenu(session=sc, running_show=True).run()
                 elif cmd == "confirm":
                     _soundcheck_confirm(current_channels, genre, band_cfg, logger)
                     return

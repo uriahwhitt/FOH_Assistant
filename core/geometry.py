@@ -36,15 +36,32 @@ def distance_3d(pos_a: dict, pos_b: dict) -> float:
     return math.sqrt(dx**2 + dy**2 + dz**2)
 
 
-def compute_venue_distances(venue_config: dict) -> dict:
-    """Compute all distances from mic to each PA element. Returns labeled dict in meters."""
-    mic = venue_config['reference_mic']
-    pa  = venue_config['pa']
+def _compute_distances_from_positions(venue_data: dict) -> dict:
+    """Compute mic-to-speaker distances from venue YAML x/y/height positions."""
+    mic = venue_data['reference_mic']
+    pa  = venue_data['pa']
     distances = {}
     for key in ('top_left', 'top_right', 'sub_left', 'sub_right'):
         if key in pa and pa[key] is not None:
             distances[f'mic_to_{key}_m'] = distance_3d(mic, pa[key])
     return distances
+
+
+def compute_venue_distances(venue_data: dict,
+                              session_distances: dict = None) -> dict:
+    """Compute mic-to-speaker distances.
+
+    If session_distances is provided (from MicPlacement.as_geometry_dict()),
+    those rangefinder values are used directly and override the 3D position
+    calculation from venue YAML coordinates. Remaining keys fall back to
+    the computed values so partial overrides work correctly.
+    """
+    computed = _compute_distances_from_positions(venue_data)
+    if session_distances:
+        result = dict(computed)
+        result.update(session_distances)
+        return result
+    return computed
 
 
 # ---------------------------------------------------------------------------
@@ -522,10 +539,17 @@ class IrregularRoomAcoustics(VenueAcoustics):
 # ---------------------------------------------------------------------------
 
 def load_venue_profile(venue_id: str,
-                        venues_dir: str = None) -> VenueProfile:
+                        venues_dir: str = None,
+                        session=None) -> VenueProfile:
     """
     Load venue profile from YAML, compute distances and physics,
     instantiate the appropriate VenueAcoustics subclass.
+
+    If session is provided and has rangefinder distances
+    (session.mic_placement.has_distances), those values are used directly
+    for geometry calculations, bypassing the 3D position calculation from
+    venue YAML x/y coordinates. Rangefinder gives direct distance; venue
+    YAML stores estimated position coordinates.
     """
     if venues_dir is None:
         venues_dir = Path(__file__).parent.parent / 'config' / 'venues'
@@ -535,7 +559,13 @@ def load_venue_profile(venue_id: str,
         raw_config = yaml.safe_load(f)
 
     venue_data = raw_config['venue']
-    distances  = compute_venue_distances(venue_data)
+
+    session_distances = None
+    if session is not None and hasattr(session, 'mic_placement'):
+        if session.mic_placement.has_distances:
+            session_distances = session.mic_placement.as_geometry_dict()
+
+    distances = compute_venue_distances(venue_data, session_distances=session_distances)
 
     room_modes = {}
     if venue_data['stage'].get('room'):

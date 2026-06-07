@@ -9,3 +9,8 @@ build/
 .env
 shows/
 *.zip
+
+# Session files — contain show-specific IP and mic distances, not committed
+config/sessions/latest_session.yaml
+config/sessions/2*.yaml
+!config/sessions/.gitkeep
