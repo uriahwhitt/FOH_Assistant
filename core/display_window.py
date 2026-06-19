@@ -218,6 +218,17 @@ class SpectrumDisplay:
         ax.legend(loc='upper left', fontsize=7,
                   facecolor='#1a1a1a', edgecolor=GRID_COLOR, labelcolor='#aaaaaa')
 
+        # Confidence de-emphasis overlays (gray fill above curves for low-confidence bands)
+        self._confidence_overlays = {}
+        for band, (idx_lo, idx_hi) in self._band_index_ranges.items():
+            overlay = mpatches.Rectangle(
+                (idx_lo - 0.5, -20), idx_hi - idx_lo, 40,
+                facecolor='#888888', edgecolor='none',
+                alpha=0.0, zorder=8,
+            )
+            ax.add_patch(overlay)
+            self._confidence_overlays[band] = overlay
+
         # Readout strip
         self._readout_texts = {}
         ax_r = self._ax_read
@@ -234,8 +245,14 @@ class SpectrumDisplay:
                             fontweight='bold')
             self._readout_texts[band] = txt
 
+        ax_r.text(N_THIRD_OCTAVE * 0.98, 0.0,
+                  "dimmed = low confidence band",
+                  ha='right', va='center',
+                  color='#444444', fontsize=6, fontfamily='monospace')
+
         self._all_artists = (
             list(self._highlight_patches.values()) +
+            list(self._confidence_overlays.values()) +
             list(self._readout_texts.values()) +
             [self._line_board, self._line_mic, self._line_target,
              self._title, self._lufs_text]
@@ -314,6 +331,20 @@ class SpectrumDisplay:
                 color, base_alpha = self._pick_highlight_color(abs(dev), direction)
                 patch.set_facecolor(color)
                 patch.set_alpha(min(0.85, base_alpha * scale))
+
+        band_confidence = snap.get('band_confidence', {})
+        for band, overlay in self._confidence_overlays.items():
+            conf = band_confidence.get(band, 1.0)
+            if conf >= 0.8:
+                overlay.set_alpha(0.0)
+            elif conf >= 0.5:
+                overlay.set_alpha(0.08)
+            elif conf >= 0.2:
+                overlay.set_alpha(0.18)
+            else:
+                overlay.set_alpha(0.35)
+            overlay.set_height(y_hi - y_lo)
+            overlay.set_y(y_lo)
 
         for band, txt in self._readout_texts.items():
             dev = highlights.get(band, 0.0)

@@ -35,6 +35,10 @@ ROOM_SILENCE_THRESHOLD_LUFS = -50.0
 DISPLAY_WINDOW_SECONDS = 0.1
 DISPLAY_EMA_ALPHA_MIC  = 0.40
 
+# Active frequency range for normalization (PA reliable output range)
+ACTIVE_NORM_LO_HZ = 80.0
+ACTIVE_NORM_HI_HZ = 8000.0
+
 
 def current_time_ms() -> float:
     return time.time() * 1000.0
@@ -66,6 +70,30 @@ def normalize_to_shape(spectrum_db: np.ndarray,
         mean_db = float(np.mean(spectrum_db[freq_mask]))
     else:
         mean_db = float(np.mean(spectrum_db))
+    return spectrum_db - mean_db
+
+
+def normalize_to_shape_active(spectrum_db: np.ndarray,
+                               freq_axis: np.ndarray = None,
+                               active_lo_hz: float = ACTIVE_NORM_LO_HZ,
+                               active_hi_hz: float = ACTIVE_NORM_HI_HZ,
+                               confidence_mask: 'np.ndarray | None' = None) -> np.ndarray:
+    """Normalize spectrum using the trusted frequency range for the mean calculation.
+
+    If confidence_mask is provided, uses that instead of the active range bounds.
+    Falls back to active range bounds if mask is all False or not provided.
+    """
+    if freq_axis is None:
+        freq_axis = FREQ_AXIS
+
+    if confidence_mask is not None and confidence_mask.any():
+        mean_db = float(np.mean(spectrum_db[confidence_mask]))
+    else:
+        range_mask = (freq_axis >= active_lo_hz) & (freq_axis <= active_hi_hz)
+        if range_mask.any():
+            mean_db = float(np.mean(spectrum_db[range_mask]))
+        else:
+            mean_db = float(np.mean(spectrum_db))
     return spectrum_db - mean_db
 
 
@@ -306,6 +334,9 @@ class MicAnalyzer:
         self._prev_spectrum: Optional[np.ndarray] = None
         self._current_analysis: Optional['MicAnalysis'] = None
         self._silence_threshold  = silence_threshold_lufs
+        self._confidence_mask    = venue_acoustics.confidence_weighted_freq_mask(
+            FREQ_AXIS, threshold=0.5
+        )
 
     def analyze(self, audio_capture) -> MicAnalysis:
         """Full analysis pipeline. Call once per 500ms cycle."""
@@ -333,8 +364,11 @@ class MicAnalyzer:
         raw_spectrum_db = interpolate_to_freq_axis(freqs_hz, raw_psd_db)
 
         corrected_spectrum_db = raw_spectrum_db + self.correction_curve_db
-        smoothed_spectrum_db  = self._ema_analysis.update(corrected_spectrum_db)
-        normalized_shape_db   = normalize_to_shape(smoothed_spectrum_db)
+        smoothed_spectrum_db        = self._ema_analysis.update(corrected_spectrum_db)
+        normalized_shape_db         = normalize_to_shape(smoothed_spectrum_db)
+        normalized_shape_active_db  = normalize_to_shape_active(
+            smoothed_spectrum_db, FREQ_AXIS, confidence_mask=self._confidence_mask
+        )
 
         band_levels  = compute_band_levels(smoothed_spectrum_db)
         silent       = is_room_silent(lufs, band_levels, self._silence_threshold)
@@ -353,6 +387,7 @@ class MicAnalyzer:
             corrected_spectrum_db=corrected_spectrum_db,
             smoothed_spectrum_db=smoothed_spectrum_db,
             normalized_shape_db=normalized_shape_db,
+            normalized_shape_active_db=normalized_shape_active_db,
             spectral_delta_db=spectral_delta,
             band_levels=band_levels,
             room_mode_flags=room_mode_flags,

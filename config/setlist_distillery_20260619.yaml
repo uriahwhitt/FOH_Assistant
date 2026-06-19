@@ -1,0 +1,487 @@
+# Whitt's End — Distillery Show
+# Generated from: 2026-06-13__Doubletree_.xlsx
+# Sheet: Doghouse 4.18
+
+soundcheck:
+  song: Tush
+  artist: ZZ Top
+  genre: Hard Rock
+  key: G
+  start: guitar start
+  vocalist: Stephanie
+  notes: Soundcheck opener — guitar start, dial in Guitar 1 first
+
+set_1:
+
+  - slot: 1
+    song: Working for the Weekend
+    artist: Loverboy
+    genre: AOR
+    key: B
+    start: cowbell-2-3-4
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 2
+    song: Any Way You Want It
+    artist: Journey
+    genre: AOR
+    key: G
+    start: 1-2, 1-2-3-sn-cr
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 3
+    song: Hurts So Good
+    artist: John Mellencamp
+    genre: Hard Rock
+    key: A
+    start: 2x Drum Intro
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 4
+    song: One Way or Another
+    artist: Blondie
+    genre: Hard Rock
+    key: D
+    start: guitar start
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 5
+    song: Hit Me With Your Best Shot
+    artist: Pat Benatar
+    genre: Hard Rock
+    key: E
+    start: 1-2-3-snare (med)
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 6
+    song: Summer of '69
+    artist: Bryan Adams
+    genre: Hard Rock
+    key: D
+    start: 1-2-3-Snare
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 7
+    song: Kryptonite
+    artist: 3 Doors Down
+    genre: Post-Grunge
+    key: Bm
+    start: guitar start
+    vocalist: Eric
+    status: confirmed
+    notes: Eric on lead vocal
+
+  - slot: 8
+    song: Danger Zone
+    artist: Kenny Loggins
+    genre: AOR
+    key: D#m
+    start: bass start
+    key_transposed: true
+    transposition: "-0.5 steps (half step down for vocalist)"
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 9
+    song: Superstition
+    artist: Stevie Wonder
+    genre: Hard Rock
+    key: Ebm
+    start: drum start
+    key_transposed: true
+    transposition: "-0.5 steps (half step down for vocalist)"
+    vocalist: Stephanie
+    status: confirmed
+    notes: Funk pocket — watch low-mid on keys and bass together
+
+  - slot: 10
+    song: Nightrain
+    artist: Guns n Roses
+    genre: Hard Rock
+    key: F#
+    start: cowbell start
+    key_transposed: true
+    transposition: "-0.5 steps (half step down for vocalist)"
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 11
+    song: Fallen Angel
+    artist: Poison
+    genre: Glam Metal
+    key: G
+    start: guitar start
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 12
+    song: Fortunate Son
+    artist: CCR
+    genre: Hard Rock
+    key: G
+    start: 2x Drum Intro
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 13
+    song: Gimme Three Steps
+    artist: Lynyrd Skynyrd
+    genre: Hard Rock
+    key: D
+    start: guitar start
+    vocalist: Ken
+    status: confirmed
+    notes: Ken on lead vocal
+
+  - slot: 14
+    song: Lovin' Touchin' Squeezin'
+    artist: Journey
+    genre: AOR
+    key: A
+    start: guitar/drums start
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 15
+    song: Heartache Tonight
+    artist: Eagles
+    genre: AOR
+    key: G
+    start: 1-2, 1-2-3-4
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 16
+    song: I Hate Myself for Loving You
+    artist: Joan Jett
+    genre: Hard Rock
+    key: A
+    start: Drum int
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 17
+    song: Paris
+    artist: Grace Potter
+    genre: AOR
+    key: E
+    start: guitar start
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 18
+    song: Separate Ways
+    artist: Journey
+    genre: AOR
+    key: E
+    start: keys intro
+    vocalist: Stephanie
+    status: confirmed
+    notes: Keys intro prominent — confirm keys level before song
+
+set_2:
+
+  - slot: 1
+    song: Cult of Personality
+    artist: Living Colour
+    genre: Hard Rock
+    key: G
+    vocalist: Stephanie
+    status: confirmed
+    notes: Heavy funk/metal hybrid — watch low-mid on bass and guitar together
+
+  - slot: 2
+    song: Here I Go Again
+    artist: Whitesnake
+    genre: AOR
+    key: G
+    start: keys-vocal intro
+    vocalist: Stephanie
+    status: confirmed
+    notes: Keys and vocal open cold — confirm both levels before downbeat
+
+  - slot: 3
+    song: Heartbreaker
+    artist: Pat Benatar
+    genre: Hard Rock
+    key: Fm
+    start: drum/gtr intro x4
+    key_transposed: true
+    transposition: "-0.5 steps (half step down for vocalist)"
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 4
+    song: Beat It
+    artist: Michael Jackson
+    genre: Hard Rock
+    key: Eb
+    start: keys start
+    key_transposed: true
+    transposition: "-0.5 steps (half step down for vocalist)"
+    vocalist: Stephanie
+    status: confirmed
+    notes: Guitar solo prominent — high-mid presence important
+
+  - slot: 5
+    song: Hot Blooded
+    artist: Foreigner
+    genre: AOR
+    key: G
+    start: drum/guitar start
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 6
+    song: Play That Funky Music
+    artist: Wild Cherry
+    genre: Hard Rock
+    key: E
+    start: bass start
+    vocalist: Stephanie
+    status: confirmed
+    notes: Funk feel — bass forward, watch low-mid
+
+  - slot: 7
+    song: Brick House
+    artist: Commodores
+    genre: Hard Rock
+    key: G
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 8
+    song: Round and Round
+    artist: Ratt
+    genre: Glam Metal
+    key: Em
+    start: click off
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 9
+    song: Your Love
+    artist: The Outfield
+    genre: AOR
+    key: E
+    start: guitar start
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 10
+    song: Lonely Ole Night
+    artist: John Mellencamp
+    genre: Hard Rock
+    key: E
+    start: guitar/drums start
+    vocalist: Ken
+    status: confirmed
+    notes: Ken on lead vocal, bass to Ken as well
+
+  - slot: 11
+    song: Fire
+    artist: Jimi Hendrix
+    genre: Hard Rock
+    key: D
+    start: 1-2-1-2-3 gtr/drum
+    vocalist: Eric
+    status: confirmed
+    notes: Eric on lead vocal, bass to Ken
+
+  - slot: 12
+    song: Me and Bobby McGee
+    artist: Janis Joplin
+    genre: Hard Rock
+    key: G
+    start: acoustic
+    vocalist: Stephanie
+    status: confirmed
+    notes: Acoustic start — guitar level may need adjustment from electric songs
+
+  - slot: 13
+    song: The Trooper
+    artist: Iron Maiden
+    genre: Heavy Metal
+    key: Em
+    vocalist: Stephanie
+    status: confirmed
+    notes: Heavier — watch low-mid and high-mid balance
+
+  - slot: 14
+    song: Nothing But a Good Time
+    artist: Poison
+    genre: Glam Metal
+    key: A
+    start: guitar start
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 15
+    song: Rock of Ages
+    artist: Def Leppard
+    genre: Glam Metal
+    key: Em
+    start: drum/cowbell start
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 16
+    song: Welcome to the Jungle
+    artist: Guns N Roses
+    genre: Hard Rock
+    key: Ebm
+    start: gtr riff, drums in
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 17
+    song: Thunderstruck
+    artist: AC/DC
+    genre: Hard Rock
+    key: B
+    key_transposed: true
+    transposition: "-0.5 steps (half step down for vocalist)"
+    vocalist: Stephanie
+    status: confirmed
+
+  - slot: 18
+    song: Don't Stop Believin'
+    artist: Journey
+    genre: AOR
+    key: E
+    start: Piano Start/bass
+    vocalist: Stephanie
+    status: confirmed
+    notes: Closer — keys intro, confirm level before downbeat
+
+alternates_set_1:
+
+  - song: Pour Some Sugar on Me
+    artist: Def Leppard
+    genre: Glam Metal
+    key: E
+    start: "step inside..."
+    vocalist: Stephanie
+    status: alternate
+
+  - song: Sweet Emotion
+    artist: Aerosmith
+    genre: Hard Rock
+    key: A
+    start: Gtr Start x6
+    vocalist: Stephanie
+    status: alternate
+
+  - song: Rock & Roll All Night
+    artist: KISS
+    genre: Hard Rock
+    key: A
+    start: 4x drum intro
+    vocalist: Stephanie
+    status: alternate
+
+  - song: Walking on Sunshine
+    artist: Katrina & The Waves
+    genre: Party Rock
+    key: Bb
+    start: Drum Intro
+    vocalist: Stephanie
+    status: alternate
+
+  - song: You Oughta Know
+    artist: Alanis Morissette
+    genre: Post-Grunge
+    key: F#m
+    start: Vocals/drum roll
+    vocalist: Stephanie
+    status: alternate
+
+  - song: Sweet Child of Mine
+    artist: Guns N Roses
+    genre: Hard Rock
+    key: D
+    start: Guitar 4x, med
+    vocalist: Stephanie
+    status: alternate
+
+  - song: Wanted Dead or Alive
+    artist: Bon Jovi
+    genre: AOR
+    key: D
+    start: Guitar or Keys
+    vocalist: Stephanie
+    status: alternate
+
+  - song: Rock You Like a Hurricane
+    artist: Scorpions
+    genre: Hard Rock
+    key: E
+    start: guitar start
+    vocalist: Stephanie
+    status: alternate
+
+  - song: Blister in the Sun
+    artist: Violent Femmes
+    genre: Party Rock
+    key: G
+    start: guitar start
+    vocalist: Ken
+    status: alternate
+    notes: Ken on lead vocal
+
+  - song: Kiss Me Deadly
+    artist: Lita Ford
+    genre: Glam Metal
+    key: C
+    start: vocal start
+    key_transposed: true
+    transposition: "-0.5 steps (half step down for vocalist)"
+    vocalist: Stephanie
+    status: alternate
+
+  - song: Lay Down Sally
+    artist: Eric Clapton
+    genre: Hard Rock
+    key: A
+    start: gtr + drum shuffle
+    vocalist: Ken
+    status: alternate
+    notes: Ken on lead vocal
+
+alternates_set_2:
+
+  - song: Man in the Box
+    artist: Alice in Chains
+    genre: Post-Grunge
+    key: G
+    start: click off
+    key_transposed: true
+    transposition: "-0.5 steps (half step down for vocalist)"
+    vocalist: Stephanie
+    status: alternate
+    notes: Dark and heavy — sub-bass and low-mid will be prominent
+
+  - song: Walk This Way
+    artist: Aerosmith
+    genre: Hard Rock
+    key: C
+    start: Drum int (open hat)
+    key_transposed: true
+    transposition: "-0.5 steps (half step down for vocalist)"
+    vocalist: Stephanie
+    status: alternate
+
+  - song: Crazy Train
+    artist: Ozzy
+    genre: Hard Rock
+    key: A
+    start: Bass-Drums start
+    vocalist: Stephanie
+    status: alternate
+    notes: Guitar riff is the hook — Guitar 1 clarity critical

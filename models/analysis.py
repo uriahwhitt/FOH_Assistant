@@ -32,6 +32,8 @@ class MicAnalysis:
 
     # Mean-subtracted shape spectrum — position-independent (populated by MicAnalyzer.analyze())
     normalized_shape_db: np.ndarray = field(default_factory=lambda: np.zeros(1000))
+    # Active-range normalized shape — mean computed over 80Hz–8kHz only (display use)
+    normalized_shape_active_db: np.ndarray = field(default_factory=lambda: np.zeros(1000))
 
     @property
     def spectral_centroid_hz(self) -> float:

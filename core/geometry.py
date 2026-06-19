@@ -211,6 +211,12 @@ def ground_reflection_comb_notches(speaker_height_m: float,
 # VenueAcoustics — abstract base and concrete subclasses
 # ---------------------------------------------------------------------------
 
+DEFAULT_CONFIDENCE = {
+    'sub': 1.0, 'bass': 1.0, 'low_mid': 1.0, 'mid_low': 1.0,
+    'mid_high': 1.0, 'upper_mid': 1.0, 'presence': 1.0, 'air': 1.0,
+}
+
+
 class VenueAcoustics(ABC):
     """Base class for venue-type-specific acoustic calculations."""
 
@@ -247,6 +253,26 @@ class VenueAcoustics(ABC):
     def silence_threshold_lufs(self) -> float:
         """LUFS silence gate threshold. Overridable via venue YAML silence_threshold_lufs."""
         return float(getattr(self, 'config', {}).get('silence_threshold_lufs', -50.0))
+
+    @property
+    def frequency_confidence(self) -> dict:
+        """Per-band confidence weights (0.0–1.0). Loaded from venue YAML frequency_confidence block."""
+        raw = getattr(self, 'config', {}).get('frequency_confidence', {})
+        result = dict(DEFAULT_CONFIDENCE)
+        result.update({k: float(v) for k, v in raw.items() if k in DEFAULT_CONFIDENCE})
+        return result
+
+    def confidence_weighted_freq_mask(self,
+                                       freq_axis: np.ndarray,
+                                       threshold: float = 0.5) -> np.ndarray:
+        """Boolean mask of freq_axis bins where band confidence >= threshold."""
+        from core.mic_analyzer import ANALYSIS_BANDS
+        mask = np.zeros(len(freq_axis), dtype=bool)
+        conf = self.frequency_confidence
+        for band_name, f_lo, f_hi in ANALYSIS_BANDS:
+            if conf.get(band_name, 1.0) >= threshold:
+                mask |= (freq_axis >= f_lo) & (freq_axis < f_hi)
+        return mask
 
     @classmethod
     def from_venue_profile(cls, venue_config: dict) -> 'VenueAcoustics':

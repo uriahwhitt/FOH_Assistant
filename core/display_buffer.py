@@ -23,8 +23,12 @@ class DisplayBuffer:
     mic_shape_fast: np.ndarray = field(default_factory=lambda: np.zeros(N_THIRD_OCTAVE))
 
     # Band data — mic deviation from genre target (drives highlight colors)
-    band_highlights: dict = field(default_factory=dict)  # band → deviation_db
-    band_peaks:      dict = field(default_factory=dict)  # band → (peak_hz, prominence_db)
+    band_highlights:  dict = field(default_factory=dict)  # band → deviation_db
+    band_peaks:       dict = field(default_factory=dict)  # band → (peak_hz, prominence_db)
+    band_confidence:  dict = field(default_factory=lambda: {
+        'sub': 1.0, 'bass': 1.0, 'low_mid': 1.0, 'mid_low': 1.0,
+        'mid_high': 1.0, 'upper_mid': 1.0, 'presence': 1.0, 'air': 1.0,
+    })
 
     # Metadata
     song_name:  str   = ""
@@ -52,6 +56,7 @@ class DisplayBuffer:
                 'genre_target_bands': self.genre_target_bands.copy(),
                 'band_highlights':    dict(self.band_highlights),
                 'band_peaks':         dict(self.band_peaks),
+                'band_confidence':    dict(self.band_confidence),
                 'song_name':          self.song_name,
                 'genre_name':         self.genre_name,
                 'lufs':               self.lufs,

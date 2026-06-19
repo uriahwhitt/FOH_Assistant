@@ -59,6 +59,18 @@ BAND_PERCEPTUAL_WEIGHTS = {
     "air":       0.9,
 }
 
+# Maps recommender band names to venue frequency_confidence dict keys.
+# 'mid' spans two confidence bands — take the minimum (most conservative).
+_RECOMMENDER_TO_CONFIDENCE: dict[str, list[str]] = {
+    "sub_bass": ["sub"],
+    "bass":     ["bass"],
+    "low_mid":  ["low_mid"],
+    "mid":      ["mid_low", "mid_high"],
+    "high_mid": ["upper_mid"],
+    "presence": ["presence"],
+    "air":      ["air"],
+}
+
 
 def _build_band_recommendation_text(band: str,
                                      direction: str,
@@ -197,6 +209,10 @@ class RecommendationEngine:
 
         self._baseline: Optional[dict[int, ChannelState]] = None
 
+        # Confidence gating — set each evaluate() call from venue frequency_confidence
+        self._band_confidence: dict[str, float] = {}
+        self._suppressed_bands: list[dict] = []   # cleared each evaluate() cycle
+
         # Transition grace period: suppresses LUFS and band recs during
         # song changes while the engineer resets monitor mixes and tuning.
         # Baseline drift still fires — those board changes are worth logging.
@@ -253,8 +269,12 @@ class RecommendationEngine:
 
     def evaluate(self, analysis: RoomAnalysis,
                  channels: dict[int, ChannelState],
-                 mic_analysis=None) -> list[Recommendation]:
+                 mic_analysis=None,
+                 band_confidence: dict = None) -> list[Recommendation]:
         """Run one recommendation cycle. Returns list of new recommendations."""
+        self._band_confidence = band_confidence or {}
+        self._suppressed_bands = []
+
         # Auto-expire transition grace period using wall time
         if self._in_transition and time.time() >= self._transition_end:
             self._in_transition = False
@@ -285,6 +305,27 @@ class RecommendationEngine:
     # Internal — checks
     # ------------------------------------------------------------------
 
+    def _conf_for_band(self, band: str) -> float:
+        """Minimum confidence across all confidence keys that this recommender band spans."""
+        keys = _RECOMMENDER_TO_CONFIDENCE.get(band, [band])
+        return min(self._band_confidence.get(k, 1.0) for k in keys)
+
+    def _band_is_trusted(self, band: str) -> bool:
+        """True if band confidence >= 0.5 — below this the measurement is unreliable."""
+        return self._conf_for_band(band) >= 0.5
+
+    def _effective_threshold(self, band: str, base_threshold: float) -> float:
+        """Confidence-adjusted deviation threshold.
+        0.8–1.0 → normal. 0.5–0.8 → ×1.5. <0.5 → inf (caught by _band_is_trusted).
+        """
+        conf = self._conf_for_band(band)
+        if conf >= 0.8:
+            return base_threshold
+        elif conf >= 0.5:
+            return base_threshold * 1.5
+        else:
+            return float('inf')
+
     def _check_lufs(self, analysis: RoomAnalysis) -> None:
         """Silence gate only — sets _in_silence flag.
 
@@ -309,13 +350,16 @@ class RecommendationEngine:
         now = analysis.timestamp
         current_active: set[tuple[int, str]] = set()
 
-        # Use mic normalized_shape_db when available — mean-subtracted, position-independent.
-        # Falls back to internal median normalization of RoomAnalysis bands.
+        # Use active-range normalized mic spectrum when available (Layer 1/2).
+        # Falls back to full-range normalized shape, then median normalization.
         if mic_analysis is not None and not mic_analysis.is_silent:
             from core.mic_analyzer import band_average
+            mic_shape = (getattr(mic_analysis, 'normalized_shape_active_db', None)
+                         if getattr(mic_analysis, 'normalized_shape_active_db', None) is not None
+                         and not all(getattr(mic_analysis, 'normalized_shape_active_db').flat == 0)
+                         else mic_analysis.normalized_shape_db)
             normalized_band_levels = {
-                band: band_average(mic_analysis.normalized_shape_db,
-                                   BAND_RANGES[band])
+                band: band_average(mic_shape, BAND_RANGES[band])
                 for band in BAND_NAMES
             }
             def get_normalized(band: str) -> tuple[float, bool]:
@@ -332,6 +376,19 @@ class RecommendationEngine:
                 return raw - median_level, raw > -85.0
 
         for band in BAND_NAMES:
+            # Confidence gate 1: skip entirely if band is unreliable
+            if not self._band_is_trusted(band):
+                normalized, valid = get_normalized(band)
+                if valid:
+                    target_offset = self._genre.target_for_band(band)
+                    self._suppressed_bands.append({
+                        'band': band,
+                        'confidence': self._conf_for_band(band),
+                        'deviation_db': normalized - target_offset,
+                        'reason': 'low_confidence_band',
+                    })
+                continue
+
             normalized, valid = get_normalized(band)
             if not valid:
                 continue
@@ -339,7 +396,9 @@ class RecommendationEngine:
             raw_deviation = normalized - target_offset
             weight = BAND_PERCEPTUAL_WEIGHTS.get(band, 1.0)
             weighted_deviation = raw_deviation * weight
-            if abs(weighted_deviation) <= threshold:
+            # Confidence gate 2: use confidence-adjusted threshold
+            effective_threshold = self._effective_threshold(band, threshold)
+            if abs(weighted_deviation) <= effective_threshold:
                 continue
             deviation = raw_deviation  # report raw in output
 
@@ -365,7 +424,7 @@ class RecommendationEngine:
                 combined = _build_band_recommendation_text(
                     band=band, direction=direction, deviation_db=deviation,
                     dominant_channel_label=culprit.label,
-                    mic_spectrum=mic_analysis.normalized_shape_db,
+                    mic_spectrum=mic_shape,
                 )
                 if '\n  → ' in combined:
                     detail_text, fallback_suggest = combined.split('\n  → ', 1)

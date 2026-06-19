@@ -52,3 +52,13 @@ venue:
     Speaker distances are estimates from position coords; measure with laser rangefinder
     on arrival and update position_y_m values for accurate comb filter calculation.
     Ground surface is concrete — expect boundary reinforcement in sub band.
+
+  frequency_confidence:
+    sub:        0.5   # real PA will have sub — set to 1.0 at show
+    bass:       1.0
+    low_mid:    1.0
+    mid_low:    1.0
+    mid_high:   1.0
+    upper_mid:  1.0
+    presence:   0.9
+    air:        0.6   # room absorption always affects air — slightly reduced

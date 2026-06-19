@@ -1,0 +1,33 @@
+venue:
+  name: "Home Test Environment"
+  id: home_test
+  capacity: 1
+
+  stage:
+    type: irregular
+    room:
+      length_m: null
+      width_m: null
+      ceiling_height_m: null
+      shape_notes: "Home office — band-limited bookshelf speakers"
+
+  reference_mic:
+    position_x_m: 0.0
+    position_y_m: 3.0
+    height_m: 1.2
+
+  pa_settings: []
+
+  pa_notes: "Home testing only — not a real venue"
+
+  silence_threshold_lufs: -60.0
+
+  frequency_confidence:
+    sub:        0.0   # home speakers produce nothing here
+    bass:       0.3   # home speakers have significant bass hump
+    low_mid:    0.7
+    mid_low:    0.9
+    mid_high:   0.9
+    upper_mid:  0.8
+    presence:   0.6   # room absorption reduces confidence
+    air:        0.1   # home speakers roll off sharply

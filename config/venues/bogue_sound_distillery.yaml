@@ -1,0 +1,115 @@
+# Bogue Sound Distillery — Venue Profile
+# Created: 2026-06-19
+# Acoustic class: corner (band plays from corner, not flat wall)
+# Fill in rangefinder measurements on arrival before soundcheck
+
+venue:
+  name: "Bogue Sound Distillery"
+  id: bogue_sound_distillery
+  capacity: 80          # estimate — update if known
+  stage:
+    type: corner        # band plays from corner — two-wall boundary loading
+
+    room:
+      length_m: null    # measure on arrival (longest wall from corner stage)
+      width_m: null     # measure on arrival (shorter wall from corner stage)
+      ceiling_height_m: null   # high ceilings — measure or estimate on arrival
+      shape_notes: >
+        Small venue with high ceilings. Band plays from corner — PA stacks
+        will be at an angle relative to the audience, not parallel to back wall.
+        Corner placement means both left and right subs have boundary
+        reinforcement from two walls each. Expect significant sub buildup.
+        High ceilings may produce flutter echo in upper-mid/presence bands.
+
+    environment:
+      ground_surface: concrete   # typical for distillery — update if wood/carpet
+      nearest_wall_distance_m: null   # distance from corner to opposite wall
+      pa_height_m: null               # top of speaker stacks — measure on arrival
+
+  pa:
+    config_type: stereo_corner_stack
+    crossover_hz: 100
+    notes: >
+      Corner stage — left stack against left wall, right stack against right wall.
+      Both subs will have dual-wall boundary reinforcement.
+      Expect +4 to +6dB sub boost vs open placement.
+      Confirm sub attenuation is pulled back to compensate.
+
+    # Fill in on arrival after measuring
+    top_left:
+      position_x_m: null   # distance from corner along left wall
+      position_y_m: null   # depth into room
+      height_m: null
+    top_right:
+      position_x_m: null   # distance from corner along right wall
+      position_y_m: null
+      height_m: null
+    sub_left:
+      position_x_m: null
+      position_y_m: null
+      height_m: 0.0
+      boundary_loaded: true    # confirmed — corner stage, two-wall loading
+    sub_right:
+      position_x_m: null
+      position_y_m: null
+      height_m: 0.0
+      boundary_loaded: true
+
+  pa_settings:
+    - label: "Sub attenuation pulled back — corner loading adds +4 to +6dB"
+      required: true
+    - label: "Check sub phase alignment — corner reflections can cause cancellation"
+      required: true
+    - label: "High ceiling flutter — consider short reverb or presence cut if needed"
+      required: false
+    - label: "Confirm PA angle covers full audience area from corner position"
+      required: true
+
+  pa_notes: >
+    AT2035 via PreSonus Studio 26c. Corner stage — place mic at center of
+    audience area, NOT directly in front of stage. Aim for a position that
+    represents the average listener, accounting for the angled PA coverage.
+    Measure distances from each speaker stack to mic position with rangefinder.
+    High ceilings: expect presence and air bands to be more lively than
+    a low-ceiling venue — flutter echo may appear in 2–4kHz range.
+
+  reference_mic:
+    position_x_m: null    # fill from rangefinder on arrival
+    position_y_m: null
+    height_m: 1.5
+    placement_notes: >
+      Center of audience area. Corner stage means the "center" is not directly
+      in front of the band — it's diagonally out from the corner.
+      Aim for roughly equidistant from left and right speaker stacks.
+
+frequency_confidence:
+  sub:        0.7   # corner loading adds real sub — more trustworthy than home
+  bass:       1.0
+  low_mid:    1.0
+  mid_low:    1.0
+  mid_high:   1.0
+  upper_mid:  0.9
+  presence:   0.8   # high ceilings may add flutter — slightly reduced
+  air:        0.7   # high ceilings — more lively but less predictable
+
+analysis:
+  silence_threshold_lufs: -50.0   # production default — full PA
+
+# ── Rangefinder checklist (complete on arrival) ────────────────────────────
+# Run: python main.py --settings → Session → Mic Placement
+#
+# Measurements needed:
+#   1. Left speaker top to mic position (m)
+#   2. Right speaker top to mic position (m)
+#   3. Left sub to mic position (m)
+#   4. Right sub to mic position (m)
+#   5. Speaker stack height (m) — top of cab from floor
+#   6. Mic height (m) — capsule height, default 1.5m
+#
+# Also useful (for room mode calculation):
+#   7. Room length — corner to far wall (m)
+#   8. Room width — corner to side wall (m)
+#   9. Ceiling height at FOH position (m)
+#
+# Update config/venues/bogue_sound_distillery.yaml room section with #7-9
+# These help predict room modes (corner stage amplifies room modes significantly)

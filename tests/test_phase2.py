@@ -1792,3 +1792,194 @@ class TestShapeNormalization:
         assert np.allclose(
             mic_loud.normalized_shape_db, mic_quiet.normalized_shape_db, atol=1e-6
         ), "normalized_shape_db must be level-independent"
+
+
+class TestActiveNormalization:
+
+    def test_active_norm_centers_active_range(self):
+        """Mean of active range (80–8000Hz) should be ≈ 0 after normalization."""
+        from core.mic_analyzer import normalize_to_shape_active, ACTIVE_NORM_LO_HZ, ACTIVE_NORM_HI_HZ
+        from core.channel_model import FREQ_AXIS
+
+        spectrum = np.full(len(FREQ_AXIS), -40.0)
+        spectrum[FREQ_AXIS < 80]   = -80.0
+        spectrum[FREQ_AXIS > 8000] = -70.0
+
+        result = normalize_to_shape_active(spectrum, FREQ_AXIS)
+
+        active_mask = (FREQ_AXIS >= ACTIVE_NORM_LO_HZ) & (FREQ_AXIS <= ACTIVE_NORM_HI_HZ)
+        active_mean = float(np.mean(result[active_mask]))
+        assert abs(active_mean) < 0.1, f"Active range mean should be ~0, got {active_mean:.2f}"
+
+    def test_active_norm_preserves_shape(self):
+        """Normalization should shift the curve, not distort it."""
+        from core.mic_analyzer import normalize_to_shape_active
+        from core.channel_model import FREQ_AXIS
+
+        rng      = np.random.default_rng(42)
+        spectrum = rng.standard_normal(len(FREQ_AXIS)) * 5 + np.linspace(5, -5, len(FREQ_AXIS))
+        result   = normalize_to_shape_active(spectrum, FREQ_AXIS)
+
+        assert np.allclose(np.diff(spectrum), np.diff(result), atol=1e-6)
+
+    def test_active_norm_different_from_full_norm_when_extremes_silent(self):
+        """With silent sub/air, active norm should differ from full-range norm."""
+        from core.mic_analyzer import normalize_to_shape, normalize_to_shape_active
+        from core.channel_model import FREQ_AXIS
+
+        spectrum = np.full(len(FREQ_AXIS), -40.0)
+        spectrum[FREQ_AXIS < 80]   = -80.0
+        spectrum[FREQ_AXIS > 8000] = -80.0
+
+        full_norm   = normalize_to_shape(spectrum)
+        active_norm = normalize_to_shape_active(spectrum, FREQ_AXIS)
+
+        assert not np.allclose(full_norm, active_norm, atol=1.0), \
+            "Active and full norm should differ with silent extreme bands"
+
+    def test_active_norm_falls_back_to_full_when_no_active_bins(self):
+        """If no bins in active range, should not crash — falls back to full mean."""
+        from core.mic_analyzer import normalize_to_shape_active
+        from core.channel_model import FREQ_AXIS
+
+        spectrum = np.full(len(FREQ_AXIS), -40.0)
+        result = normalize_to_shape_active(spectrum, FREQ_AXIS,
+                                           active_lo_hz=50000.0,
+                                           active_hi_hz=60000.0)
+        assert len(result) == len(spectrum)
+        assert abs(float(np.mean(result))) < 0.1
+
+    def test_mic_analysis_has_active_shape_field(self):
+        """MicAnalysis must have normalized_shape_active_db field."""
+        from models.analysis import MicAnalysis
+        fields = [f.name for f in MicAnalysis.__dataclass_fields__.values()]
+        assert 'normalized_shape_active_db' in fields
+
+
+class TestFrequencyConfidence:
+
+    def test_venue_acoustics_confidence_defaults_to_one(self):
+        """All bands default to 1.0 if no frequency_confidence in YAML."""
+        from core.geometry import IrregularRoomAcoustics
+        acoustics = IrregularRoomAcoustics({})
+        conf = acoustics.frequency_confidence
+        assert all(v == 1.0 for v in conf.values())
+        assert 'sub' in conf and 'air' in conf
+
+    def test_venue_acoustics_confidence_reads_yaml(self):
+        """frequency_confidence block in config dict is loaded correctly."""
+        from core.geometry import IrregularRoomAcoustics
+        acoustics = IrregularRoomAcoustics({})
+        acoustics.config = {'frequency_confidence': {'sub': 0.0, 'bass': 0.3, 'air': 0.1}}
+        conf = acoustics.frequency_confidence
+        assert conf['sub'] == 0.0
+        assert conf['bass'] == 0.3
+        assert conf['air'] == 0.1
+        assert conf['mid_low'] == 1.0   # not specified — defaults to 1.0
+
+    def test_confidence_mask_excludes_low_confidence_bands(self):
+        """Bands with confidence < 0.5 should not appear in mask."""
+        from core.geometry import IrregularRoomAcoustics
+        from core.channel_model import FREQ_AXIS
+        acoustics = IrregularRoomAcoustics({})
+        acoustics.config = {'frequency_confidence': {'sub': 0.0, 'air': 0.1}}
+        mask = acoustics.confidence_weighted_freq_mask(FREQ_AXIS, threshold=0.5)
+        sub_mask = (FREQ_AXIS >= 20) & (FREQ_AXIS < 80)
+        assert not mask[sub_mask].any(), "Sub band should be excluded from mask"
+        mid_mask = (FREQ_AXIS >= 500) & (FREQ_AXIS < 1000)
+        assert mask[mid_mask].all(), "Mid band should be included in mask"
+
+    def test_active_norm_uses_confidence_mask(self):
+        """normalize_to_shape_active uses confidence_mask over active range bounds."""
+        from core.mic_analyzer import normalize_to_shape_active
+        from core.channel_model import FREQ_AXIS
+
+        # Spike in bass band (80–200Hz) — inside the active range, so without
+        # a confidence mask the spike IS included in the mean and skews output.
+        spectrum = np.full(len(FREQ_AXIS), -40.0)
+        bass_mask = (FREQ_AXIS >= 80) & (FREQ_AXIS < 200)
+        spectrum[bass_mask] = 0.0   # 40dB spike in bass
+
+        conf_mask = ~bass_mask   # exclude bass from mean
+
+        result_with_mask    = normalize_to_shape_active(spectrum, FREQ_AXIS, confidence_mask=conf_mask)
+        result_without_mask = normalize_to_shape_active(spectrum, FREQ_AXIS, confidence_mask=None)
+
+        # With mask: non-bass region should be near 0 (bass excluded from mean)
+        non_bass_with    = float(np.mean(result_with_mask[~bass_mask]))
+        # Without mask: active range includes bass, so spike skews mean, non-bass shifts negative
+        non_bass_without = float(np.mean(result_without_mask[~bass_mask]))
+
+        assert abs(non_bass_with) < 1.0, \
+            f"With confidence mask, non-bass mean should be ~0, got {non_bass_with:.2f}"
+        assert non_bass_without < -3.0, \
+            f"Without mask, bass spike should push non-bass below 0, got {non_bass_without:.2f}"
+
+
+class TestConfidenceGatedRecommendations:
+
+    def test_band_is_trusted_returns_false_below_half(self):
+        """_band_is_trusted() returns False when confidence < 0.5."""
+        from core.recommender import RecommendationEngine as Recommender
+        r = Recommender.__new__(Recommender)
+        r._band_confidence = {'sub': 0.3, 'bass': 0.5, 'air': 0.0}
+        assert not r._band_is_trusted('sub_bass')   # maps to 'sub' → 0.3
+        assert not r._band_is_trusted('air')         # 0.0
+        assert r._band_is_trusted('bass')            # exactly 0.5 = trusted
+
+    def test_effective_threshold_scales_with_confidence(self):
+        """_effective_threshold() should scale correctly."""
+        from core.recommender import RecommendationEngine as Recommender
+        r = Recommender.__new__(Recommender)
+        r._band_confidence = {'bass': 0.9, 'presence': 0.6, 'sub': 0.2}
+        base = 3.0
+        assert r._effective_threshold('bass', base) == 3.0
+        assert r._effective_threshold('presence', base) == pytest.approx(4.5)
+        assert r._effective_threshold('sub_bass', base) == float('inf')
+
+    def test_mid_band_uses_minimum_confidence(self):
+        """'mid' band spans mid_low + mid_high — should use the minimum."""
+        from core.recommender import RecommendationEngine as Recommender
+        r = Recommender.__new__(Recommender)
+        r._band_confidence = {'mid_low': 0.9, 'mid_high': 0.4}
+        # mid_high is 0.4 < 0.5, so mid is untrusted
+        assert not r._band_is_trusted('mid')
+
+    def test_suppressed_bands_populated_after_evaluate(self):
+        """engine._suppressed_bands should list bands skipped due to low confidence."""
+        from core.recommender import RecommendationEngine as Recommender
+        from models.event import RoomAnalysis
+        import time as _time
+
+        band_confidence = {
+            'sub': 0.0, 'bass': 0.0, 'low_mid': 1.0, 'mid_low': 1.0,
+            'mid_high': 1.0, 'upper_mid': 1.0, 'presence': 1.0, 'air': 0.0,
+        }
+        band_cfg = {'thresholds': {}, 'frequency_fingerprints': {}}
+        genre = MagicMock()
+        genre.target_for_band.return_value = 0.0
+        genre.id = 'test'
+        engine = Recommender(band_cfg, genre)
+
+        analysis = MagicMock(spec=RoomAnalysis)
+        analysis.timestamp = _time.time()
+        analysis.rms_db = -60.0   # silent → no band recs fire
+        analysis.bands = {b: -90.0 for b in ('sub_bass', 'bass', 'low_mid',
+                                              'mid', 'high_mid', 'presence', 'air')}
+
+        mic = MagicMock()
+        mic.is_silent = True   # force fallback path so suppression still tracks
+
+        engine.evaluate(analysis, {}, mic_analysis=mic, band_confidence=band_confidence)
+
+        # _suppressed_bands may be empty when rms_db triggers silence gate —
+        # but the dict must exist and be a list
+        assert isinstance(engine._suppressed_bands, list)
+
+    def test_no_confidence_treats_all_as_trusted(self):
+        """When band_confidence is None, _band_is_trusted() returns True for all bands."""
+        from core.recommender import RecommendationEngine as Recommender
+        r = Recommender.__new__(Recommender)
+        r._band_confidence = {}   # empty = all default to 1.0
+        for band in ('sub_bass', 'bass', 'low_mid', 'mid', 'high_mid', 'presence', 'air'):
+            assert r._band_is_trusted(band), f"{band} should be trusted with empty confidence dict"

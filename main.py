@@ -434,6 +434,16 @@ def main() -> None:
             if not getattr(args, 'no_venue', False):
                 logger.log_warning("No venue profile — acoustic corrections disabled")
 
+        _conf = venue_acoustics.frequency_confidence
+        _low_conf = {b: v for b, v in _conf.items() if v < 0.8}
+        if _low_conf:
+            print("Frequency confidence adjustments:")
+            for _band, _val in _low_conf.items():
+                _status = "EXCLUDED" if _val < 0.5 else "reduced threshold (×1.5)"
+                print(f"  {_band:<12} {_val:.1f}  →  {_status}")
+        else:
+            print("Frequency confidence: all bands fully trusted")
+
         mic_analyzer = MicAnalyzer(venue_acoustics,
                                     silence_threshold_lufs=venue_acoustics.silence_threshold_lufs())
         forward_model = ForwardModel(venue_acoustics)
@@ -465,6 +475,8 @@ def main() -> None:
                 ),
                 genre_name=active_genre.id,
             )
+
+        display_buffer.update(band_confidence=venue_acoustics.frequency_confidence)
 
         if args.display:
             from core.display_window import launch_display
@@ -696,6 +708,10 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                                 mic_analyzer.venue_acoustics     = new_profile.acoustics
                                 mic_analyzer.correction_curve_db = new_profile.acoustics.mic_correction_curve()
                                 mic_analyzer.room_mode_mask_arr  = new_profile.acoustics.room_mode_mask()
+                                from core.channel_model import FREQ_AXIS as _FA
+                                mic_analyzer._confidence_mask = new_profile.acoustics.confidence_weighted_freq_mask(_FA, threshold=0.5)
+                            if display_buffer is not None:
+                                display_buffer.update(band_confidence=new_profile.acoustics.frequency_confidence)
                             print("[SETTINGS] Geometry reloaded with updated mic distances")
                         except Exception as _e:
                             print(f"[SETTINGS] Could not reload geometry: {_e}")
@@ -726,12 +742,12 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                 mic_result   = mic_analyzer.analyze(capture)
                 board_rta_db = osc.board_rta_db
                 if display_buffer is not None:
-                    from core.mic_analyzer import normalize_to_shape
+                    from core.mic_analyzer import normalize_to_shape_active
+                    from core.channel_model import FREQ_AXIS as _FREQ_AXIS
                     from core.forward_model import _interpolate_rta_to_freq_axis
                     from core.third_octave import to_third_octave, normalize_third_octave
                     rta_1000  = _interpolate_rta_to_freq_axis(board_rta_db)
-                    rta_shape = normalize_to_shape(rta_1000)
-                    rta_bands = normalize_third_octave(to_third_octave(rta_shape))
+                    rta_bands = normalize_third_octave(to_third_octave(normalize_to_shape_active(rta_1000, _FREQ_AXIS)))
                     display_buffer.update(board_rta_fast=rta_bands)
                 ch_configs   = osc.channel_configs
                 ch_meters    = osc.channel_meters
@@ -745,12 +761,13 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                 if band_cfg.get('logging', {}).get('analysis_cycle', True):
                     logger.log_analysis_cycle(fm_result, mic_result)
                 if display_buffer is not None and not mic_result.is_silent:
-                    from core.mic_analyzer import normalize_to_shape
+                    from core.mic_analyzer import normalize_to_shape_active
+                    from core.channel_model import FREQ_AXIS as _FREQ_AXIS
                     from core.forward_model import _interpolate_rta_to_freq_axis
                     from core.third_octave import to_third_octave, normalize_third_octave
                     rta_1000  = _interpolate_rta_to_freq_axis(board_rta_db)
-                    rta_bands = normalize_third_octave(to_third_octave(normalize_to_shape(rta_1000)))
-                    mic_bands = normalize_third_octave(to_third_octave(mic_result.normalized_shape_db))
+                    rta_bands = normalize_third_octave(to_third_octave(normalize_to_shape_active(rta_1000, _FREQ_AXIS)))
+                    mic_bands = normalize_third_octave(to_third_octave(mic_result.normalized_shape_active_db))
                     display_buffer.update(
                         board_rta_bands=rta_bands,
                         mic_bands=mic_bands,
@@ -771,11 +788,22 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                         logger.log_input_state_event(ch_num, meter.prev_input_state, meter.input_state, meter, characterization)
 
             if not st.in_set_break:
-                recs = engine.evaluate(analysis, current_channels, mic_analysis=mic_result)
+                _band_conf = (mic_analyzer.venue_acoustics.frequency_confidence
+                              if mic_analyzer is not None else {})
+                recs = engine.evaluate(analysis, current_channels,
+                                       mic_analysis=mic_result,
+                                       band_confidence=_band_conf)
                 for rec in recs:
                     logger.log_recommendation(rec)
                     _show_print(rec.format_terminal())
                     _show_print("")
+                for _sup in engine._suppressed_bands:
+                    logger.log_warning(
+                        f"[CONFIDENCE] Suppressed {_sup['band']} "
+                        f"(conf={_sup['confidence']:.1f}, "
+                        f"dev={_sup.get('deviation_db', 0.0):+.1f}dB, "
+                        f"reason={_sup['reason']})"
+                    )
 
             while kb_queue:
                 cmd = kb_queue.pop(0)
@@ -1541,13 +1569,19 @@ BAND_RANGES_DISPLAY = {
 
 
 def _compute_band_highlights(mic_result, active_genre) -> dict:
-    """Mic normalized shape deviation from genre target per band."""
+    """Mic active-normalized shape deviation from genre target per band."""
     if not active_genre or not mic_result:
         return {}
     from core.mic_analyzer import band_average
+    import numpy as _np
+    mic_shape = mic_result.normalized_shape_db
+    if hasattr(mic_result, 'normalized_shape_active_db'):
+        _active = mic_result.normalized_shape_active_db
+        if isinstance(_active, _np.ndarray) and not _np.all(_active == 0):
+            mic_shape = _active
     highlights = {}
     for band, (f_lo, f_hi) in BAND_RANGES_DISPLAY.items():
-        mic_avg    = band_average(mic_result.normalized_shape_db, (f_lo, f_hi))
+        mic_avg    = band_average(mic_shape, (f_lo, f_hi))
         target_avg = float(active_genre.frequency_targets.get(band, 0.0))
         highlights[band] = mic_avg - target_avg
     return highlights

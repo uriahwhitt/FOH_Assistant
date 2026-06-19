@@ -147,6 +147,7 @@ class SettingsMenu:
             print("  4. Edit PA hardware")
             print("  5. PA settings checklist")
             print("  6. View geometry report")
+            print("  7. Frequency confidence")
             print()
             print("  0. Back")
             print()
@@ -157,6 +158,7 @@ class SettingsMenu:
             elif c == '4': self._edit_venue_yaml('pa')
             elif c == '5': self._edit_pa_checklist()
             elif c == '6': self._geometry_report()
+            elif c == '7': self._edit_confidence_screen()
             elif c == '0': break
 
     def _select_venue(self) -> None:
@@ -365,6 +367,71 @@ class SettingsMenu:
                         time.sleep(0.4)
                 except (ValueError, IndexError):
                     pass
+
+    def _edit_confidence_screen(self) -> None:
+        """Adjust per-band frequency confidence weights."""
+        if not self._require_venue():
+            return
+
+        fpath = Path(f'config/venues/{self.session.venue_id}.yaml')
+        BANDS = ['sub', 'bass', 'low_mid', 'mid_low',
+                 'mid_high', 'upper_mid', 'presence', 'air']
+
+        while True:
+            _clear()
+            with open(fpath, 'r') as f:
+                data = yaml.safe_load(f)
+
+            conf = data.get('frequency_confidence', {})
+            print(_sep())
+            print("FREQUENCY CONFIDENCE")
+            print(f"Venue: {self._venue_name()}")
+            print(_sep())
+            print("Set reliability of each band (0.0 = exclude, 1.0 = fully trust)")
+            print("Low confidence bands appear dimmed in the display.")
+            print()
+
+            for i, band in enumerate(BANDS, 1):
+                val = conf.get(band, 1.0)
+                filled = int(val * 10)
+                bar = '█' * filled + '░' * (10 - filled)
+                print(f"  {i}. {band:<12} [{bar}] {val:.1f}")
+
+            print()
+            print("  a. Reset all to 1.0 (full trust)")
+            print("  0. Back")
+            print()
+            print("Enter band number to edit:")
+            c = _prompt()
+
+            if c == '0':
+                break
+            elif c == 'a':
+                for band in BANDS:
+                    conf[band] = 1.0
+                data['frequency_confidence'] = conf
+                with open(fpath, 'w') as f:
+                    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+                print("  All bands reset to 1.0")
+                time.sleep(0.5)
+            elif c.isdigit() and 1 <= int(c) <= len(BANDS):
+                band = BANDS[int(c) - 1]
+                current = conf.get(band, 1.0)
+                val_str = input(
+                    f"  {band} confidence [{current:.1f}] (0.0–1.0, Enter=keep): "
+                ).strip()
+                if val_str:
+                    try:
+                        new_val = max(0.0, min(1.0, float(val_str)))
+                        conf[band] = round(new_val, 1)
+                        data['frequency_confidence'] = conf
+                        with open(fpath, 'w') as f:
+                            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+                        print(f"  {band} confidence set to {new_val:.1f}")
+                        time.sleep(0.4)
+                    except ValueError:
+                        print("  Invalid — must be 0.0–1.0")
+                        time.sleep(0.8)
 
     def _geometry_report(self) -> None:
         """Load venue with session distances and print geometry report."""
