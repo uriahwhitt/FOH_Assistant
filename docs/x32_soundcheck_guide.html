@@ -361,13 +361,35 @@ td:first-child {
     <div class="card-header">Sample recommendation — what you'll see in the terminal</div>
     <div class="rec-box">
       <span class="label">Example output</span>
-      [21:34:12] Guitar 1 — low-mid buildup around 315Hz detected<br>
-      &nbsp;&nbsp;Current:&nbsp; EQ Band 2 +1.5dB @ 315Hz | Fader -2.0dB<br>
-      &nbsp;&nbsp;Baseline: EQ Band 2 +1.5dB @ 315Hz | Fader -2.0dB (no drift)<br>
-      &nbsp;&nbsp;Genre:&nbsp;&nbsp;&nbsp; Glam Metal target -1dB @ low-mid<br>
-      &nbsp;&nbsp;Suggest:&nbsp; EQ Band 2 cut to -1.5dB @ 315Hz
+      [21:34:12] Guitar 1 — Mud cut — low_mid +3.8dB · peak at 315Hz (+2.1dB above band mean — sharp resonance)<br>
+      &nbsp;&nbsp;Current:&nbsp; rms: -11.4dBFS | fader: -3.0dB | eq: EQ Band 2 +1.5dB @ 315Hz<br>
+      &nbsp;&nbsp;Genre:&nbsp;&nbsp;&nbsp; Glam Metal<br>
+      &nbsp;&nbsp;Suggest:&nbsp; Guitar 1: EQ cut at 315Hz, Q≈2.0
     </div>
-    <p class="muted">Each recommendation tells you: <strong>which channel</strong>, <strong>what to touch</strong> (EQ band number or fader), and <strong>how much to move it</strong>. The sections below show exactly where to go on the tablet to make each type of change.</p>
+    <p class="muted">Each recommendation tells you: <strong>which channel</strong>, <strong>what type of problem</strong> (named move), <strong>which Hz to target</strong>, and <strong>the specific change to make</strong>. The sections below show exactly where to go on the tablet.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">The display window (--display flag)</div>
+    <p class="muted">Launch with: <span class="path">python main.py --show --display</span></p>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.75rem;">Shows three curves updated in real time:</p>
+    <table>
+      <tr><th>Color</th><th>Curve</th><th>What it shows</th></tr>
+      <tr><td>White/gray</td><td>Board RTA</td><td>What the board is outputting (post-EQ)</td></tr>
+      <tr><td>Amber/orange</td><td>Room Mic</td><td>What the audience is hearing</td></tr>
+      <tr><td>Cyan dashed</td><td>Genre Target</td><td>What we want for this song's genre</td></tr>
+    </table>
+    <h3>Band highlights behind the curves</h3>
+    <table>
+      <tr><th>Color</th><th>Meaning</th></tr>
+      <tr><td>Warm (yellow→orange→red)</td><td>Mic reading above target — excess</td></tr>
+      <tr><td>Cool (blue→indigo)</td><td>Mic reading below target — deficiency</td></tr>
+      <tr><td>Dimmed/gray overlay</td><td>Low-confidence band — unreliable data</td></tr>
+    </table>
+    <h3>Numeric readout strip (bottom)</h3>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.5rem;">Per-band dB deviation of mic vs target. Positive = excess (needs cutting). Negative = deficiency (needs boosting).</p>
+    <div class="tip">The curves show <strong>normalized shape</strong> — position-independent. A +5dB reading means "5dB more than the target expects relative to midrange", regardless of how loud or quiet the overall mix is.</div>
+    <div class="ok">If the display window freezes: close it — it will reopen automatically in about 2 seconds.</div>
   </div>
 
   <div class="card">
@@ -383,6 +405,7 @@ td:first-child {
       </div>
     </div>
     <div class="tip">The navigation paths in this guide apply to both apps — the steps are the same, the layout differs slightly.</div>
+    <div class="tip">To update the X32 IP address: run <span class="path">python main.py --settings</span> → Session → X32 Connection → enter new IP. The session file stores it automatically — no need to edit YAML files.</div>
   </div>
 </div>
 
@@ -444,7 +467,7 @@ td:first-child {
 
     <div class="tip">Don't touch the Q (bandwidth) unless the system specifically recommends a Q change. Start with gain-only adjustments — that's what Phase 1 recommendations target.</div>
 
-    <div class="ok">After adjusting, type <strong>recheck</strong> in the terminal (soundcheck mode) to re-assess the channel. In show mode, the system will re-evaluate automatically on the next 1-second cycle.</div>
+    <div class="ok">After adjusting, the system re-evaluates automatically on the next cycle (every 500ms in show mode). No manual recheck command needed.</div>
   </div>
 
   <div class="card">
@@ -472,36 +495,26 @@ td:first-child {
 </div>
 
 <div id="tab-main" class="section" role="tabpanel">
-  <p class="section-title">Responding to overall LUFS / loudness recommendations</p>
+  <p class="section-title">LUFS — Display and Silence Gate Only</p>
 
   <div class="card">
-    <div class="card-header">Room is too loud — "3dB above [genre] LUFS target"</div>
-    <p class="muted">The system will name the top contributing channels. Address those first before touching the main fader.</p>
-    <div class="step"><div class="step-num">1</div><div class="step-body">Pull back the <strong>loudest contributing channel</strong> by 1–2dB on its channel fader first. The system names which channels are driving the level.</div></div>
-    <div class="step"><div class="step-num">2</div><div class="step-body">If the room is still reading hot after 60 seconds (next recommendation cycle), the system will fire again. At that point consider a small main LR fader pull — 0.5dB at a time.</div></div>
-    <div class="step"><div class="step-num">3</div><div class="step-body">Main LR fader location: in X32-Mix it's the rightmost fader on the master section, or look for the large "LR" strip at far right. In X32-Q, select "LR" from the channel picker.</div></div>
+    <div class="card-header">LUFS does not drive mix recommendations</div>
+    <p class="muted">The LUFS reading shown in the display window (top right: "LUFS: -21.4") is for monitoring and reference only. The system does not generate "too loud" or "too quiet" recommendations based on LUFS.</p>
+    <div class="tip"><strong>Why:</strong> mic placement affects LUFS readings significantly. A mic 5 feet closer to the PA reads 3dB higher regardless of mix quality. LUFS is position-dependent and cannot reliably indicate a mix problem.</div>
+
+    <h3>What LUFS does in this system</h3>
+    <div class="step"><div class="step-num">•</div><div class="step-body"><strong>Silence gate</strong> — when LUFS drops below -50dBFS, all recommendations are suppressed (band not playing / between songs)</div></div>
+    <div class="step"><div class="step-num">•</div><div class="step-body"><strong>Show log</strong> — LUFS is logged every cycle for post-show analysis</div></div>
+    <div class="step"><div class="step-num">•</div><div class="step-body"><strong>Display</strong> — shown as a numeric readout in the top-right of the display window for your reference</div></div>
+
+    <div class="ok">If the overall mix feels too loud or too quiet, use your ears and adjust the main LR fader directly. The system will not prompt you.</div>
   </div>
 
   <div class="card">
-    <div class="card-header">Room is too quiet — "2dB below [genre] LUFS target"</div>
-    <div class="step"><div class="step-num">1</div><div class="step-body">Push up the <strong>top contributing channel(s)</strong> named in the recommendation, 1dB at a time.</div></div>
-    <div class="step"><div class="step-num">2</div><div class="step-body">Or nudge the main LR fader up 0.5dB.</div></div>
-    <div class="warn">Be conservative pushing level up — the system uses a 60-second cooldown between recommendations on the same channel, so it won't immediately confirm. Give your ears 15–20 seconds to verify before pushing more.</div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">Frequency-band loudness issues (sub-bass heavy, high-end harsh, etc.)</div>
-    <p class="muted">These are EQ problems, not fader problems. The system identifies the frequency band and the channel most likely responsible.</p>
-    <table>
-      <tr><th>Frequency band</th><th>Typical Hz range</th><th>Likely culprit</th></tr>
-      <tr><td>Sub-bass</td><td>20–80Hz</td><td>Kick, Bass DI</td></tr>
-      <tr><td>Bass</td><td>80–250Hz</td><td>Kick, Bass, Guitar cabs</td></tr>
-      <tr><td>Low-mid</td><td>250–1kHz</td><td>Guitars, vocals, snare body</td></tr>
-      <tr><td>Mid</td><td>1kHz–4kHz</td><td>Vocals, guitars, snare attack</td></tr>
-      <tr><td>High-mid</td><td>4kHz–8kHz</td><td>Guitars, cymbals, vocal presence</td></tr>
-      <tr><td>High</td><td>8kHz–20kHz</td><td>Overheads, cymbals, vocal air</td></tr>
-    </table>
-    <p class="muted" style="margin-top:0.75rem;margin-bottom:0;">Go to the named channel's EQ page and cut or boost the relevant band. See the EQ tab for step-by-step navigation.</p>
+    <div class="card-header">Main LR fader location</div>
+    <div class="step"><div class="step-num">1</div><div class="step-body"><strong>X32-Mix:</strong> rightmost large fader on the master section, labeled "LR" or "Main"</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body"><strong>X32-Q:</strong> tap channel selector → scroll to "LR" at end of list</div></div>
+    <div class="warn">Small moves on the main LR fader affect the entire mix. Use 0.5dB increments and give the room 10–15 seconds to settle before moving again.</div>
   </div>
 </div>
 
@@ -512,20 +525,18 @@ td:first-child {
     <div class="card-header">Anatomy of a recommendation</div>
     <div class="rec-box">
       <span class="label">Full example output</span>
-      [21:34:12] Guitar 1 — low-mid buildup around 315Hz detected<br>
-      &nbsp;&nbsp;Current:&nbsp; EQ Band 2 +1.5dB @ 315Hz | Fader -2.0dB<br>
-      &nbsp;&nbsp;Baseline: EQ Band 2 +1.5dB @ 315Hz | Fader -2.0dB (no drift)<br>
-      &nbsp;&nbsp;Genre:&nbsp;&nbsp;&nbsp; Glam Metal target -1dB @ low-mid<br>
-      &nbsp;&nbsp;Suggest:&nbsp; EQ Band 2 cut to -1.5dB @ 315Hz
+      [21:34:12] Guitar 1 — Mud cut — low_mid +3.8dB · peak at 315Hz (+2.1dB above band mean — sharp resonance)<br>
+      &nbsp;&nbsp;Current:&nbsp; rms: -11.4dBFS | fader: -3.0dB | eq: EQ Band 2 +1.5dB @ 315Hz<br>
+      &nbsp;&nbsp;Genre:&nbsp;&nbsp;&nbsp; Glam Metal<br>
+      &nbsp;&nbsp;Suggest:&nbsp; Guitar 1: EQ cut at 315Hz, Q≈2.0
     </div>
     <table>
       <tr><th>Line</th><th>Means</th><th>What to do</th></tr>
-      <tr><td>Channel name</td><td>Which channel has the problem</td><td>Navigate to that channel on tablet</td></tr>
-      <tr><td>Current EQ Band #</td><td>Band number already set at that frequency</td><td>Select that band in EQ page</td></tr>
-      <tr><td>Current Fader</td><td>What the board currently reads</td><td>Sanity check — confirm it matches</td></tr>
-      <tr><td>Baseline</td><td>Where it was at soundcheck</td><td>Shows if it drifted or was always this way</td></tr>
-      <tr><td>Genre target</td><td>What the profile expects for this frequency region</td><td>Context only — don't need to act on this line</td></tr>
-      <tr><td>Suggest</td><td>The specific change to make</td><td>This is your action — execute this on the tablet</td></tr>
+      <tr><td>Channel + named move</td><td>Which channel and what type of problem (Mud cut, Harshness cut, Boxiness cut, etc.)</td><td>Navigate to that channel</td></tr>
+      <tr><td>Band + deviation + peak Hz</td><td>Which frequency band, how far above/below target, and the specific Hz to target</td><td>This is your EQ target frequency</td></tr>
+      <tr><td>Current rms/fader/eq</td><td>What the board currently reads</td><td>Sanity check</td></tr>
+      <tr><td>Genre</td><td>Active genre profile</td><td>Context only</td></tr>
+      <tr><td>Suggest</td><td>The specific change to make</td><td>Execute this on the tablet</td></tr>
     </table>
   </div>
 
@@ -541,11 +552,20 @@ td:first-child {
   <div class="card">
     <div class="card-header">Terminal keyboard commands during show</div>
     <table>
-      <tr><th>Key</th><th>Action</th></tr>
-      <tr><td>s + Enter</td><td>Print current board state snapshot (all channel faders and EQ)</td></tr>
-      <tr><td>g + Enter</td><td>Print current room analysis (LUFS + frequency bands)</td></tr>
-      <tr><td>b + Enter</td><td>Print baseline drift summary for all channels</td></tr>
-      <tr><td>n + Enter</td><td>Advance to next song in setlist, load new genre profile</td></tr>
+      <tr><th>Command</th><th>Action</th></tr>
+      <tr><td>n</td><td>Advance to next song in setlist, load new genre profile</td></tr>
+      <tr><td>n3</td><td>Jump directly to slot 3 (any slot number)</td></tr>
+      <tr><td>n-1</td><td>Go back one song</td></tr>
+      <tr><td>skip</td><td>Skip current song and advance</td></tr>
+      <tr><td>ins</td><td>Insert an alternate as the next song (shows numbered list)</td></tr>
+      <tr><td>p</td><td>Print full setlist with current position marked</td></tr>
+      <tr><td>s</td><td>Print current board state — all channels, faders, mute, RMS</td></tr>
+      <tr><td>g</td><td>Print room analysis — LUFS and all frequency bands</td></tr>
+      <tr><td>b</td><td>Print baseline drift — compare current board to soundcheck</td></tr>
+      <tr><td>cal</td><td>Live calibration scan — run during a stable full-band passage</td></tr>
+      <tr><td>settings</td><td>Open settings menu (show keeps running in background)</td></tr>
+      <tr><td>break</td><td>Enter set break mode — pauses recommendations, logs break</td></tr>
+      <tr><td>a</td><td>Capture ambient noise baseline (empty room or crowd)</td></tr>
       <tr><td>Ctrl+C</td><td>Graceful shutdown — generates post-show report</td></tr>
     </table>
   </div>
@@ -586,37 +606,31 @@ td:first-child {
 
   <div class="card">
     <div class="card-header">Soundcheck mode flow</div>
-    <div class="step"><div class="step-num">1</div><div class="step-body">Run <span class="path">python main.py --baseline</span> — system enters soundcheck mode</div></div>
-    <div class="step"><div class="step-num">2</div><div class="step-body">Type channel name or number at the prompt (e.g. <strong>kick</strong>, <strong>guitar1</strong>)</div></div>
-    <div class="step"><div class="step-num">3</div><div class="step-body">System prints current state + recommendation</div></div>
-    <div class="step"><div class="step-num">4</div><div class="step-body">Make adjustment on tablet</div></div>
-    <div class="step"><div class="step-num">5</div><div class="step-body">Type <strong>recheck</strong> to re-assess — system re-reads board and re-analyzes</div></div>
-    <div class="step"><div class="step-num">6</div><div class="step-body">Repeat for each channel, then type <strong>band</strong> for full combined mix assessment</div></div>
-    <div class="step"><div class="step-num">7</div><div class="step-body">Type <strong>confirm</strong> to lock baseline and save snapshot</div></div>
-
-    <div class="ok">Once baseline is locked, the system enters show mode automatically (or run <span class="path">python main.py --show</span> separately).</div>
+    <div class="step"><div class="step-num">1</div><div class="step-body">Run <span class="path">python main.py --soundcheck --display</span><br><span style="color:var(--color-text-tertiary);font-size:13px;">--display is optional but recommended — opens the spectrum display window</span></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Before band plays — capture empty room ambient:</strong><br><span class="path">a + Enter</span> → <span class="path">e + Enter</span> → <span class="path">60 + Enter</span><br><span style="color:var(--color-text-tertiary);font-size:13px;">Runs a 60-second background capture. Show loop keeps running.</span></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body">Dial in the board channel by channel as normal. The system gives real-time advisory against the genre target. Recommendation cooldown is 20 seconds in soundcheck mode.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-body"><strong>During the first full-band passage, run a calibration scan:</strong><br><span class="path">cal + Enter</span><br><span style="color:var(--color-text-tertiary);font-size:13px;">Compares each channel's actual spectrum to the model prediction. Updates instrument priors. Run once or twice during soundcheck.</span></div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-body"><strong>Optional — individual channel isolation (if time allows):</strong><br><span class="path">iso 7 + Enter</span> &nbsp;(Guitar 1) &nbsp; <span class="path">iso 9 + Enter</span> &nbsp;(Lead Vocal) &nbsp; <span class="path">iso 13 + Enter</span> &nbsp;(Bass)<br><span style="color:var(--color-text-tertiary);font-size:13px;">Solo the channel on the board first, then press Enter when ready. 12-second capture. More accurate than cal scan.</span></div></div>
+    <div class="step"><div class="step-num">6</div><div class="step-body"><strong>When the mix is dialed in, lock the baseline:</strong><br><span class="path">confirm + Enter</span><br><span style="color:var(--color-text-tertiary);font-size:13px;">Saves current channel state. System enters show mode automatically, or launch separately with: python main.py --show --display</span></div></div>
   </div>
 
   <div class="card">
-    <div class="card-header">Band channel map (confirm at first test show)</div>
+    <div class="card-header">Band channel map — Nostalgic Knights</div>
     <table>
       <tr><th>Ch</th><th>Label</th><th>Type</th><th>Notes</th></tr>
-      <tr><td>1</td><td>Kick</td><td>Instrument</td><td></td></tr>
-      <tr><td>2</td><td>Snare</td><td>Instrument</td><td></td></tr>
-      <tr><td>3</td><td>Hi-Hat</td><td>Instrument</td><td></td></tr>
-      <tr><td>4</td><td>Overhead L</td><td>Instrument</td><td></td></tr>
-      <tr><td>5</td><td>Overhead R</td><td>Instrument</td><td></td></tr>
-      <tr><td>6</td><td>Drum Vocal</td><td>Vocal — sparse</td><td>Active only on FFYR</td></tr>
-      <tr><td>7</td><td>Bass DI</td><td>Instrument</td><td></td></tr>
-      <tr><td>8</td><td>Bassist Vocal</td><td>Vocal</td><td>Lead on Kryptonite</td></tr>
-      <tr><td>9</td><td>Guitar 1</td><td>Instrument</td><td>Shared lead/rhythm</td></tr>
-      <tr><td>10</td><td>Guitar 2</td><td>Instrument</td><td>Shared lead/rhythm</td></tr>
-      <tr><td>11</td><td>Guitar 3 / Keys</td><td>Instrument</td><td>Paired — paired channel guard active</td></tr>
-      <tr><td>12</td><td>Lead Vocal</td><td>Vocal</td><td></td></tr>
-      <tr><td>13</td><td>Backing Vocal 1</td><td>Vocal</td><td></td></tr>
-      <tr><td>14</td><td>Backing Vocal 2</td><td>Vocal</td><td></td></tr>
+      <tr><td>1</td><td>Kick</td><td>Instrument</td><td>Watch mud zone 300–500Hz</td></tr>
+      <tr><td>4</td><td>Drum Rack</td><td>Instrument</td><td></td></tr>
+      <tr><td>5</td><td>Floor Tom</td><td>Instrument</td><td></td></tr>
+      <tr><td>6</td><td>Acoustic Guitar</td><td>Instrument</td><td>Ken — active when switching off keys</td></tr>
+      <tr><td>7</td><td>Guitar 1</td><td>Instrument</td><td>Shared lead/rhythm</td></tr>
+      <tr><td>8</td><td>Guitar 2</td><td>Instrument</td><td>Shared lead/rhythm</td></tr>
+      <tr><td>9</td><td>Lead Vocal</td><td>Vocal</td><td>Stephanie — primary lead all show</td></tr>
+      <tr><td>10</td><td>Drum Vocal</td><td>Vocal</td><td>Mitch — open all show</td></tr>
+      <tr><td>11</td><td>Bassist Vocal</td><td>Vocal</td><td>Eric — lead on Kryptonite, Fire</td></tr>
+      <tr><td>12</td><td>Keys Vocal</td><td>Vocal</td><td>Ken — lead on Gimme Three Steps, Lonely Ole Night</td></tr>
+      <tr><td>13</td><td>Bass</td><td>Instrument</td><td></td></tr>
+      <tr><td>15</td><td>Keys</td><td>Instrument</td><td>Muted when Ken on acoustic (ch 6)</td></tr>
     </table>
-    <div class="warn">Channel numbers are placeholders — verify against actual X32 patch at the first test show using <span class="path">python main.py --test-osc</span></div>
   </div>
 </div>
 

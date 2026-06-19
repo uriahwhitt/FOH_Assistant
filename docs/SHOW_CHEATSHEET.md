@@ -1,190 +1,213 @@
 # FOH Assistant — Show Night Cheatsheet
-## AJ's | May 9, 2026 — Nostalgic Knights
+## Bogue Sound Distillery | June 19, 2026 — Nostalgic Knights
 
 ---
 
-## 1. ARRIVE & CONNECT — RUN THESE FIRST
+## 1. PACK LIST
 
-### List audio devices (confirm DJI mic is visible)
+- [ ] Laptop + power cable
+- [ ] AT2035 condenser mic + XLR cable
+- [ ] PreSonus Studio 26c + USB cable
+- [ ] Mic stand + foam windscreen
+- [ ] Laser rangefinder
+- [ ] Ethernet cable (backup if WiFi flaky)
+
+---
+
+## 2. ARRIVE & SETUP — IN ORDER
+
+### Step 1 — Connect hardware
+- Plug PreSonus Studio 26c into USB
+- Plug AT2035 into PreSonus **Ch1**
+- Enable **48V phantom power** on Ch1 (button on front panel)
+- Set gain to ~12 o'clock to start
+
+### Step 2 — Confirm mic is detected
 ```
 python main.py --devices
 ```
-Look for your DJI Mic 2 USB receiver in the output. Note the `← use this` marker.
-If it's not detected, use `--device-index N` to force it by index number.
+Look for `Microphone (Studio 26c)` with `← AT2035 via PreSonus Studio 26c` marker.
 
-### Test X32 connection + read channel state
+### Step 3 — Open settings and configure for tonight
+```
+python main.py --settings
+```
+
+**Settings menu navigation:**
+
+```
+SETTINGS MAIN MENU
+  1. Venue
+  2. Session
+  3. Mic & Audio
+  4. Band
+  5. System
+  0. Exit
+```
+
+**→ 1 (Venue) → 1 (Select venue)**
+Pick: `bogue_sound_distillery`
+Then `0` back to venue menu.
+
+**→ 2 (Session) → 1 (X32 Connection)**
+Enter the X32 IP address (check tablet or ask John)
+Then `0` back.
+
+**→ 2 (Session) → 2 (Mic Placement)**
+After measuring with rangefinder (do this once mic stand is in final position):
+```
+  1. Speaker L to mic    → enter distance in meters
+  2. Speaker R to mic    → enter distance in meters
+  3. Sub L to mic        → enter distance in meters
+  4. Sub R to mic        → enter distance in meters
+  5. Speaker height      → enter height in meters
+  6. Mic height          → default 1.5m, adjust if different
+  8. Mark confirmed      → locks distances with timestamp
+```
+`0` back when done.
+
+**→ 2 (Session) → 3 (Setlist)**
+Pick: `setlist_distillery_20260619`
+`0` back.
+
+**→ 2 (Session) → 5 (Print checklist)**
+Run through PA items before soundcheck.
+
+**→ 3 (Mic & Audio) → 2 (Test input level)**
+Play something through PA or speak loudly. Aim for **-12 to -6dBFS** peaks.
+Adjust PreSonus gain knob until level is in range.
+`0` back.
+
+**→ 0 (Exit settings)**
+
+### Step 4 — Test X32 connection
 ```
 python main.py --test-osc
 ```
-Confirms X32 is reachable and prints all channel faders, mute state, and EQ.
-Expected output shows channel names enriched with X32 tablet names, e.g.:
-```
-  1  Kick (KICK)      -3.0dB  ...
-  9  Lead Vocal (LV)   0.0dB  ...
-```
-If connection fails: check X32 IP in `config/band.yaml` (currently `127.0.0.1` for sim — update to real board IP before the show).
+Should print all channels with faders, mute state, EQ.
+If it fails: re-enter IP in Settings → Session → X32 Connection.
 
 ---
 
-## 2. SOUNDCHECK & BASELINE
+## 3. DISTILLERY-SPECIFIC NOTES
 
-### Run soundcheck mode
-```
-python main.py --soundcheck
-```
-- Gives real-time advisory against genre reference while you dial in the board
-- Advisory cooldown is 20s (faster feedback than show mode)
-- Watch for HPF, gain staging, and compressor advisories per channel
+**Corner stage** — Band plays from corner, not flat wall.
+- Both subs have two-wall boundary reinforcement → expect +4–6dB extra sub
+- Pull sub attenuation back before soundcheck
+- Mic should be placed **diagonally out from the corner**, centered in the audience area — not straight in front of stage
+- Try to be equidistant from left and right speaker stacks
 
-### Lock the baseline
+**High ceilings** — More natural reverb, but possible flutter echo in 2–4kHz range.
+If vocals sound harsh or "slappy", check for flutter echo in upper-mid.
+
+**PA settings checklist (confirm before soundcheck):**
+- [ ] Sub attenuation pulled back (corner loading adds significant sub)
+- [ ] Sub phase alignment checked
+- [ ] PA coverage angle reaches full audience from corner position
+
+---
+
+## 4. SOUNDCHECK
+
+```
+python main.py --soundcheck --display
+```
+
+**Before band plays — capture empty room ambient:**
+```
+a + Enter → e + Enter → 60 + Enter
+```
+Runs 60s background capture. Show loop keeps running.
+
+**Run soundcheck, dial in the board**
+
+**During first full-band passage — run cal scan:**
+```
+cal + Enter
+```
+Prints comparison of each channel's actual spectrum vs model prediction.
+Updates instrument priors. Run once or twice during soundcheck.
+
+**For individual channel isolation (if time permits):**
+```
+iso 7 + Enter    ← Guitar 1
+iso 9 + Enter    ← Lead Vocal
+iso 13 + Enter   ← Bass
+```
+Solo that channel on the board first, then press Enter when ready.
+12-second capture. Updates priors more accurately than cal scan.
+
+**Lock the baseline when mix is dialed in:**
 ```
 confirm + Enter
 ```
-Saves current channel state as the show baseline. Used for drift detection during the show.
-Run this when you're happy with the mix — before doors open.
 
 ---
 
-## 3. RUNNING THE SHOW
-
-### Start show mode
-```
-python main.py --show
-```
-
-### Start show mode with a specific X32 IP
-```
-python main.py --show --x32-ip 192.168.1.XXX
-```
-
-### Force a specific audio input device by index
-```
-python main.py --show --device-index 2
-```
-
----
-
-## 4. AMBIENT BASELINE CAPTURE
-
-Run this **after** connecting but **before** soundcheck for best results.
-Can also be run mid-show between sets to update for crowd noise.
+## 5. RUNNING THE SHOW
 
 ```
-a + Enter
+python main.py --show --display
 ```
-Then answer the prompts:
+(No IP or venue flags needed — session file carries them from settings)
+
+**The display window shows three curves:**
+- **White/gray** = Board RTA (what the board is outputting)
+- **Amber/orange** = Room Mic (what the audience is hearing)
+- **Cyan dashed** = Genre Target (what we want)
+- **Warm highlights** (yellow/orange/red) = mic reading above target in that band
+- **Cool highlights** (blue) = mic reading below target
+- **Dimmed bands** = low confidence (less reliable data)
+
+**Before Set 1 — capture ambient if not done in soundcheck:**
 ```
-Capture type — empty room (e) or crowd break (c)?  →  e
-Duration in seconds [60]:                          →  60
+a + Enter → e + Enter → 60 + Enter
 ```
-- **Empty room (e):** run pre-show, no crowd. Used during soundcheck.
-- **Crowd break (c):** run during set break. Corrects readings for crowd noise during Set 2.
-- Capture runs in the background — show loop keeps running.
-- Once captured, `g` displays both raw and ambient-corrected band readings.
 
 ---
 
-## 5. MID-SHOW KEYBOARD COMMANDS
-
-All commands are typed and confirmed with **Enter**.
+## 6. MID-SHOW KEYBOARD COMMANDS
 
 ### Song Navigation
-
 | Command | Action |
 |---|---|
-| `n` | Advance to next confirmed song |
-| `n3` | Jump directly to slot 3 (works for any slot number) |
+| `n` | Next song |
+| `n3` | Jump to slot 3 |
 | `n-1` | Go back one song |
-| `skip` | Skip current song, log it, advance to next |
-| `ins` | **Insert an alternate as the very next song** — shows numbered list, you pick one. All remaining songs shift down one slot. Nothing is dropped. |
-| `sw7` | Swap slot 7 with its pre-designated alternate, replacing it permanently |
-| `add` | Prompt for song name + genre, append to end of setlist |
+| `skip` | Skip current song and advance |
+| `ins` | Insert alternate as next song (shows numbered list) |
+| `p` | Print full setlist with current position |
 
-**Example — squeezing in an alternate between slots 15 and 16:**
-```
-ins + Enter
-  Available alternates:
-    1.  Hurts So Good (John Mellencamp)  [Hard Rock]
-    2.  One Way or Another (Blondie)     [Hard Rock]
-    3.  Wanted Dead or Alive (Bon Jovi)  [AOR]
-    ...
-  Select number:
-3 + Enter
-  [22:31] Inserted: Wanted Dead or Alive [AOR] — plays next (slot 16)
-```
-Then `n + Enter` plays the inserted song. Another `n + Enter` continues to what was Separate Ways (now slot 17). Nothing was dropped.
-
-On any navigation event the terminal prints:
-- Song name, genre, transition grace timer
-- Genre shift details (LUFS target change, frequency band target changes)
-- Any channels whose fader is significantly off from the incoming genre's weight targets
-
-### Status & Analysis
-
+### Analysis
 | Command | Action |
 |---|---|
-| `s` | Print current board state — all channels, faders, mute, RMS |
-| `g` | Print room analysis — LUFS, RMS, all frequency bands. Shows ambient-corrected readings side by side if a baseline is captured. |
-| `b` | Print baseline drift — compare current faders to soundcheck baseline |
-| `p` | Print full setlist with current position, played/skipped markers |
+| `s` | Board state — all channels, faders, mute, RMS |
+| `g` | Room analysis — LUFS, all frequency bands |
+| `b` | Baseline drift — compare current board to soundcheck |
+| `cal` | Live calibration scan (run during stable full-band passage) |
 
-### Song Control
-
+### Mid-Show Settings (doesn't stop the show)
 | Command | Action |
 |---|---|
-| `e` | End current song early (starts transition grace timer) |
-| `break` | Enter set break mode — ends current song, pauses recommendations, logs the break. Press `n` to resume into the next set. |
-| `a` | Capture ambient noise baseline (see Section 4) |
+| `settings` | Open settings menu — show keeps running in background |
+
+Use `settings` if:
+- Mic stand gets moved → update Mic Placement distances
+- X32 IP changes → update Connection
+- Need to check/adjust anything without restarting
+
+### Set Break
+| Command | Action |
+|---|---|
+| `break` | End Set 1, pause recommendations, log break |
+| `a` → `c` | Capture crowd ambient during break |
+| `n` | Start Set 2 (after break) |
 
 ### Exit
 ```
 Ctrl+C
 ```
-Ends show mode and prints the full post-show report.
-
----
-
-## 6. SET BREAK & SET 2
-
-### Enter set break mode (end of Set 1)
-```
-break + Enter
-```
-- Ends the current song cleanly and logs SET_BREAK_START
-- Recommendations pause — the board is still monitored, nothing disconnects
-- Terminal prints a reminder to run ambient capture
-
-### During the break — capture crowd ambient
-```
-a + Enter  →  c + Enter  →  60 + Enter
-```
-Crowd noise baseline updates automatically. Set 2 `g` readings will be corrected against it.
-
-### Check where you are / see both sets
-```
-p + Enter
-```
-During the break, `p` shows the full setlist with:
-- `>> 16. Separate Ways  <-- HERE` marking your last position
-- `** SET BREAK - break in progress **` between the two sets
-- Set 2 numbered 1–17 locally (matching your paper setlist)
-- `*Ken*` / `*Eric*` flags on vocal-switch songs
-- `[done]` / `[skip]` status on completed songs
-
-### Start Set 2
-```
-n + Enter
-```
-Clears break state, logs SET_BREAK_END, loads Set 2 opener (Cult of Personality).
-Or jump to a specific Set 2 song using the system slot number shown by `p`:
-```
-n17 + Enter   ← Cult of Personality
-n22 + Enter   ← Gimme Three Steps  *Ken*
-n25 + Enter   ← Lay Down Sally     *Ken*
-n27 + Enter   ← Fire               *Eric*
-n33 + Enter   ← Don't Stop Believin' (closer)
-```
-Run `p + Enter` at any time to see the full numbered list.
+Prints full post-show report and archives session.
 
 ---
 
@@ -192,93 +215,121 @@ Run `p + Enter` at any time to see the full numbered list.
 
 | Ch | Label | Who | Notes |
 |---|---|---|---|
-| 1 | Kick | — | Watch mud zone 300-500Hz |
-| 4 | Drum Rack | — | Toms |
+| 1 | Kick | — | |
+| 4 | Drum Rack | — | |
 | 5 | Floor Tom | — | |
-| 6 | Acoustic Guitar | Ken | Active when Ken switches off keys |
-| 7 | Guitar 1 | — | Lead/rhythm — solo suppression active |
-| 8 | Guitar 2 | — | Lead/rhythm — solo suppression active |
+| 6 | Acoustic Guitar | Ken | Active when Ken off keys |
+| 7 | Guitar 1 | — | |
+| 8 | Guitar 2 | — | |
 | 9 | Lead Vocal | Stephanie | Primary lead all show |
-| 10 | Drum Vocal | Mitch | Open all show — lead only on Fight for Your Right |
-| 11 | Bassist Vocal | Eric | Lead: Kryptonite (S1/5), Sharp Dressed Man (S1/13), Fire (S2/11) |
-| **12** | **Keys Vocal** | **Ken** | Lead: Can't Get Enough (S1/9), Gimme Three Steps (S2/6), Lay Down Sally (S2/9) |
+| 10 | Drum Vocal | Mitch | Open all show |
+| 11 | Bassist Vocal | Eric | Lead: Kryptonite, Fire |
+| 12 | Keys Vocal | Ken | Lead: Gimme Three Steps, Lonely Ole Night |
 | 13 | Bass | — | |
-| 15 | Keys | Ken | Muted when Ken is on acoustic (ch 6) |
+| 15 | Keys | Ken | Muted when Ken on acoustic (ch 6) |
 
 ---
 
-## 8. SONGS THAT NEED PRE-SONG CHECKS
+## 8. PRE-SONG CHECKS
 
-| Slot | Song | Flag |
+| Slot | Song | Check |
 |---|---|---|
-| S1/5 | Kryptonite | Eric (ch 11) is lead vocal — confirm mic live |
-| S1/9 | Can't Get Enough | Ken (ch 12) is lead vocal — confirm mic live |
-| S1/13 | Sharp Dressed Man | Eric (ch 11) is lead vocal — confirm mic live |
-| S1/16 | Separate Ways | Keys intro cold — confirm ch 15 level before downbeat |
-| S2/2 | Here I Go Again | Keys + vocal open cold — confirm ch 15 and ch 9 before downbeat |
-| S2/6 | Gimme Three Steps | Ken (ch 12) is lead vocal — confirm mic live |
-| S2/9 | Lay Down Sally | Ken (ch 12) is lead vocal — confirm mic live |
-| S2/10 | Me and Bobby McGee | Acoustic start — Ken switches to ch 6, ch 15 muted |
-| S2/11 | Fire | Eric (ch 11) is lead vocal — confirm mic live |
-| S2/17 | Don't Stop Believin' | Closer — keys intro, confirm ch 15 level |
+| S1/7 | Kryptonite | ★ Eric (ch 11) lead — confirm mic live |
+| S1/13 | Gimme Three Steps | ★ Ken (ch 12) lead — confirm mic live |
+| S1/18 | Separate Ways | ⚠ Keys intro cold — confirm ch 15 level |
+| S2/2 | Here I Go Again | ⚠ Keys + vocal cold — confirm ch 15 + ch 9 |
+| S2/10 | Lonely Ole Night | ★ Ken (ch 12) lead + bass to Ken |
+| S2/11 | Fire | ★ Eric (ch 11) lead + bass to Ken |
+| S2/12 | Me and Bobby McGee | ⚠ Acoustic start — Ken → ch 6, ch 15 muted |
 
 ---
 
-## 9. QUICK REFERENCE — FULL SETLIST
+## 9. SETLIST
 
-### Set 1 (slots 1–16)
+### Set 1 (18 songs)
 ```
- 1. Working for the Weekend   (Loverboy)      AOR       cowbell-2-3-4
- 2. Any Way You Want It       (Journey)       AOR       1-2 1-2-3-sn-cr
- 3. Hit Me With Your Best Shot(Pat Benatar)   Hard Rock 1-2-3-snare
- 4. Summer of '69             (Bryan Adams)   Hard Rock 1-2-3-snare
- 5. Kryptonite ★ERIC          (3 Doors Down)  Post-Grunge guitar start
- 6. Danger Zone               (K. Loggins)    AOR       bass start
- 7. Superstition              (Stevie Wonder) Hard Rock drum start
- 8. Fallen Angel              (Poison)        Glam Metal guitar start
- 9. Can't Get Enough ★KEN     (Bad Company)   Hard Rock 1-2 1-2-3
-10. Heartache Tonight         (Eagles)        AOR       1-2 1-2-3-4
-11. Fortunate Son             (CCR)           Hard Rock 2x drum intro
-12. Sweet Child of Mine       (GNR)           Hard Rock guitar 4x med
-13. Sharp Dressed Man ★ERIC   (ZZ Top)        Hard Rock drum intro
-14. I Hate Myself for Loving You (Joan Jett)  Hard Rock drum intro
-15. Paris                     (Grace Potter)  AOR       guitar start
-16. Separate Ways             (Journey)       AOR       keys intro ⚠
+ 1. Working for the Weekend   (Loverboy)       AOR        cowbell-2-3-4
+ 2. Any Way You Want It       (Journey)        AOR        1-2 1-2-3-sn-cr
+ 3. Hurts So Good             (Mellencamp)     Hard Rock  2x drum intro
+ 4. One Way or Another        (Blondie)        Hard Rock  guitar start
+ 5. Hit Me With Your Best Shot(Pat Benatar)    Hard Rock  1-2-3-snare
+ 6. Summer of '69             (Bryan Adams)    Hard Rock  1-2-3-snare
+ 7. Kryptonite         ★ERIC  (3 Doors Down)   Post-Grunge guitar start
+ 8. Danger Zone               (K. Loggins)     AOR        bass start ½↓
+ 9. Superstition              (Stevie Wonder)  Hard Rock  drum start ½↓
+10. Nightrain                 (Guns N Roses)   Hard Rock  cowbell start ½↓
+11. Fallen Angel              (Poison)         Glam Metal guitar start
+12. Fortunate Son             (CCR)            Hard Rock  2x drum intro
+13. Gimme Three Steps  ★KEN   (Lynyrd Skynyrd) Hard Rock  guitar start
+14. Lovin' Touchin' Squeezin' (Journey)        AOR        guitar/drums
+15. Heartache Tonight         (Eagles)         AOR        1-2 1-2-3-4
+16. I Hate Myself...          (Joan Jett)      Hard Rock  drum intro
+17. Paris                     (Grace Potter)   AOR        guitar start
+18. Separate Ways             (Journey)        AOR        keys intro ⚠
 ```
 
-### Set 2 (slots 17–33, navigate with n17–n33)
+### Set 2 (18 songs — navigate with n19–n36)
 ```
-17. Cult of Personality       (Living Colour) Hard Rock
-18. Here I Go Again           (Whitesnake)    AOR       keys-vocal intro ⚠
-19. Heartbreaker              (Pat Benatar)   Hard Rock drum/gtr x4
-20. Beat It                   (M. Jackson)    Hard Rock keys start
-21. Hot Blooded               (Foreigner)     AOR       drum/guitar start
-22. Gimme Three Steps ★KEN    (Lynyrd Skynyrd)Hard Rock
-23. Round and Round           (Ratt)          Glam Metal click off
-24. Your Love                 (The Outfield)  AOR       guitar start
-25. Lay Down Sally ★KEN       (Eric Clapton)  Hard Rock drum/gtr
-26. Me and Bobby McGee        (Janis Joplin)  Hard Rock acoustic ⚠
-27. Fire ★ERIC                (Jimi Hendrix)  Hard Rock
-28. Trooper                   (Iron Maiden)   Hard Rock
-29. Rock of Ages              (Def Leppard)   Glam Metal drum/cowbell
-30. Man in the Box            (Alice in Chains)Hard Rock click off
-31. Welcome to the Jungle     (GNR)           Hard Rock gtr riff
-32. Crazy Train               (Ozzy)          Hard Rock bass-drums
-33. Don't Stop Believin'      (Journey)       AOR       piano/bass ⚠
+19. Cult of Personality       (Living Colour)  Hard Rock
+20. Here I Go Again           (Whitesnake)     AOR        keys-vocal ⚠
+21. Heartbreaker              (Pat Benatar)    Hard Rock  drum/gtr x4 ½↓
+22. Beat It                   (M. Jackson)     Hard Rock  keys start ½↓
+23. Hot Blooded               (Foreigner)      AOR        drum/guitar
+24. Play That Funky Music     (Wild Cherry)    Hard Rock  bass start
+25. Brick House               (Commodores)     Hard Rock
+26. Round and Round           (Ratt)           Glam Metal click off
+27. Your Love                 (The Outfield)   AOR        guitar start
+28. Lonely Ole Night   ★KEN   (Mellencamp)     Hard Rock  guitar/drums
+29. Fire               ★ERIC  (Jimi Hendrix)   Hard Rock  1-2-1-2-3
+30. Me and Bobby McGee        (Janis Joplin)   Hard Rock  acoustic ⚠
+31. The Trooper               (Iron Maiden)    Heavy Metal
+32. Nothing But a Good Time   (Poison)         Glam Metal guitar start
+33. Rock of Ages              (Def Leppard)    Glam Metal drum/cowbell
+34. Welcome to the Jungle     (GNR)            Hard Rock  gtr riff
+35. Thunderstruck             (AC/DC)          Hard Rock  ½↓
+36. Don't Stop Believin'      (Journey)        AOR        piano/bass ⚠
 ```
-`★` = lead vocal switch  `⚠` = pre-song level check required
+`★` = vocal switch  `⚠` = pre-song level check  `½↓` = half step down for vocalist
+
+### Alternates (use `ins` command)
+```
+Pour Some Sugar on Me  (Def Leppard)    Glam Metal
+Sweet Emotion          (Aerosmith)      Hard Rock
+Rock & Roll All Night  (KISS)           Hard Rock
+Walking on Sunshine    (Katrina/Waves)  Party Rock
+You Oughta Know        (Alanis)         Post-Grunge
+Sweet Child of Mine    (GNR)            Hard Rock
+Wanted Dead or Alive   (Bon Jovi)       AOR
+Rock You Like Hurricane(Scorpions)      Hard Rock
+Blister in the Sun     (Violent Femmes) Party Rock  ★KEN
+Kiss Me Deadly         (Lita Ford)      Glam Metal  ½↓
+Lay Down Sally  ★KEN   (Eric Clapton)   Hard Rock
+Man in the Box         (Alice in Chains)Post-Grunge ½↓
+Walk This Way          (Aerosmith)      Hard Rock   ½↓
+Crazy Train            (Ozzy)           Hard Rock
+```
 
 ---
 
-## 10. SIMULATOR (DEVELOPMENT ONLY)
+## 10. IF SOMETHING GOES WRONG
 
-Run the X32 simulator in a separate terminal before connecting:
-```
-python simulator/x32_sim.py
-python simulator/x32_sim.py --scenario simulator/scenarios/level_creep.yaml
-```
+**Display window freezes:**
+Close the window — it will reopen automatically in 2 seconds.
 
-Run tests:
+**Settings froze the show:**
+This was fixed — settings now runs in background. If it somehow freezes,
+Ctrl+C and restart. Session file preserves your venue/setlist/distances.
+
+**Lost X32 connection:**
+`python main.py --test-osc` to confirm IP. Re-enter in settings if needed.
+Show log is saved continuously — no data lost on restart.
+
+**Mic not detected:**
+Check PreSonus USB is connected and 48V is on. Run `--devices` to confirm.
+
+**Start over mid-show:**
 ```
-python -m pytest tests/ -q
+python main.py --show --display
 ```
+Use `n{slot}` to jump back to where you were in the setlist.
+Previous show log is preserved with a timestamp.
