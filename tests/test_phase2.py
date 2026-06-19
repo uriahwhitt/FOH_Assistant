@@ -14,6 +14,19 @@ import yaml
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import core.logger as _logger_module
+
+
+def _make_logger(tmp_path):
+    """Create a SessionLogger backed by a tmp directory."""
+    orig = _logger_module.SHOWS_DIR
+    _logger_module.SHOWS_DIR = tmp_path
+    try:
+        lg = _logger_module.SessionLogger("Test Band", "show", "127.0.0.1", "Glam Metal")
+    finally:
+        _logger_module.SHOWS_DIR = orig
+    return lg
+
 from core.channel_model import (
     FREQ_AXIS, N_FREQS, SILENCE_THRESHOLD_DB,
     InstrumentPrior, compute_transfer_curves, compute_contribution_curve,
@@ -1983,3 +1996,93 @@ class TestConfidenceGatedRecommendations:
         r._band_confidence = {}   # empty = all default to 1.0
         for band in ('sub_bass', 'bass', 'low_mid', 'mid', 'high_mid', 'presence', 'air'):
             assert r._band_is_trusted(band), f"{band} should be trusted with empty confidence dict"
+
+
+class TestEnhancedLogging:
+
+    def test_log_suppressed_recommendation(self, tmp_path):
+        """SUPPRESSED_RECOMMENDATION events are logged correctly."""
+        lg = _make_logger(tmp_path)
+        lg.log_song_start({"title": "Test"}, 1, "Hard Rock")
+        lg.log_suppressed_recommendation(
+            band='sub', reason='low_confidence_band',
+            confidence=0.0, deviation_db=8.5,
+            channel_label='Kick', genre_id='Hard Rock'
+        )
+        events = [e for e in lg._events if e["type"] == "SUPPRESSED_RECOMMENDATION"]
+        assert len(events) == 1
+        assert events[0]["band"] == "sub"
+        assert events[0]["reason"] == "low_confidence_band"
+        assert events[0]["deviation_db"] == 8.5
+        assert events[0]["confidence"] == 0.0
+        assert events[0]["song"] == "Test"
+
+    def test_log_confidence_update(self, tmp_path):
+        """CONFIDENCE_UPDATED event is logged with correct fields."""
+        lg = _make_logger(tmp_path)
+        conf = {'sub': 0.0, 'bass': 0.3, 'low_mid': 1.0,
+                'mid_low': 1.0, 'mid_high': 1.0,
+                'upper_mid': 1.0, 'presence': 0.8, 'air': 0.1}
+        lg.log_confidence_update(conf)
+        events = [e for e in lg._events if e["type"] == "CONFIDENCE_UPDATED"]
+        assert len(events) == 1
+        assert events[0]["frequency_confidence"]["sub"] == 0.0
+        assert "sub" in events[0]["excluded_bands"]
+        assert "air" in events[0]["excluded_bands"]
+
+    def test_song_start_logs_genre_target(self, tmp_path):
+        """SONG_START includes genre_target_bands when provided."""
+        lg = _make_logger(tmp_path)
+        target = {"sub": -2.0, "bass": 1.5, "low_mid": -1.0}
+        lg.log_song_start({"title": "Test"}, 1, "Glam Metal",
+                          genre_target_bands=target)
+        song_start = next(e for e in lg._events if e["type"] == "SONG_START")
+        assert song_start["genre_target_bands"]["bass"] == 1.5
+
+    def test_song_start_backward_compatible_no_target(self, tmp_path):
+        """log_song_start without genre_target_bands still works."""
+        lg = _make_logger(tmp_path)
+        lg.log_song_start({"title": "Test"}, 1, "AOR")
+        song_start = next(e for e in lg._events if e["type"] == "SONG_START")
+        assert song_start["genre_target_bands"] == {}
+
+    def test_song_end_includes_deviation_summary(self, tmp_path):
+        """SONG_END includes band_deviation_summary and dominant_issue_band."""
+        lg = _make_logger(tmp_path)
+        lg.log_song_start({"title": "Test"}, 1, "Hard Rock")
+        lg._song_band_deviations = {
+            "bass":    [4.0, 4.5, 3.8, 5.1],
+            "low_mid": [2.0, 1.8, 2.2],
+        }
+        lg.log_song_end()
+        song_end = next(e for e in lg._events if e["type"] == "SONG_END")
+        assert "band_deviation_summary" in song_end
+        assert "bass" in song_end["band_deviation_summary"]
+        assert song_end["band_deviation_summary"]["bass"]["n_cycles"] == 4
+        assert song_end["dominant_issue_band"] == "bass"
+
+    def test_analysis_cycle_includes_mic_normalized(self, tmp_path):
+        """ANALYSIS_CYCLE entry includes mic_normalized key."""
+        lg = _make_logger(tmp_path)
+        lg.log_song_start({"title": "Test"}, 1, "Hard Rock")
+
+        fm = MagicMock()
+        fm.is_silent = False
+        fm.r_squared_mic = 0.9
+        fm.r_squared_board = 0.85
+        fm.mix_deviation_db = np.zeros(1000)
+        fm.confidence = np.ones(1000)
+        fm.board_rta_db = np.zeros(1000)
+        fm.actionable_bands = []
+        fm.dominant_channels = {}
+
+        mic = MagicMock()
+        mic.is_silent = False
+        mic.normalized_shape_db = np.zeros(1000)
+        mic.normalized_shape_active_db = np.zeros(1000)
+        mic.smoothed_spectrum_db = np.zeros(1000)
+
+        lg.log_analysis_cycle(fm, mic)
+        cycle_events = [e for e in lg._events if e["type"] == "ANALYSIS_CYCLE"]
+        assert len(cycle_events) == 1
+        assert "mic_normalized" in cycle_events[0]

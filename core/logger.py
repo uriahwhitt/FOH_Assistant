@@ -57,6 +57,7 @@ class SessionLogger:
         self._song_recs: list[str] = []     # event IDs logged during current song
         self._song_adj: list[str] = []      # adjustment event IDs during current song
         self._song_lufs: list[float] = []   # LUFS samples recorded during current song
+        self._song_band_deviations: dict[str, list[float]] = {}  # band → deviations this song
         self._between_song_start: float = 0.0
         self._completed_songs: list[dict] = []   # finished segments (songs + gaps)
         self._song_counter: int = 0              # auto-increment for no-setlist mode
@@ -66,7 +67,7 @@ class SessionLogger:
     # ------------------------------------------------------------------
 
     def log_song_start(self, song: Optional[dict], position: int,
-                       genre_id: str) -> str:
+                       genre_id: str, genre_target_bands: dict = None) -> str:
         """Log a SONG_START event.
 
         song — setlist dict {title, artist, genre_profile, ...} or None for
@@ -92,19 +93,21 @@ class SessionLogger:
         self._song_recs = []
         self._song_adj  = []
         self._song_lufs = []
+        self._song_band_deviations = {}
 
         title  = song.get("title",  "") if song else f"Song {self._song_counter}"
         artist = song.get("artist", "") if song else ""
 
         evt_id = self._next_id()
         self._events.append({
-            "id":               evt_id,
-            "timestamp":        ts_str,
-            "type":             "SONG_START",
-            "title":            title,
-            "artist":           artist,
-            "genre_profile":    genre_id,
-            "setlist_position": position,
+            "id":                 evt_id,
+            "timestamp":          ts_str,
+            "type":               "SONG_START",
+            "title":              title,
+            "artist":             artist,
+            "genre_profile":      genre_id,
+            "setlist_position":   position,
+            "genre_target_bands": genre_target_bands or {},
         })
         self._flush()
         return evt_id
@@ -120,13 +123,30 @@ class SessionLogger:
         artist = song.get("artist", "") if song else ""
         genre  = song.get("genre_profile", "") if song else ""
 
+        # Per-song band deviation summary
+        band_deviation_summary = {}
+        for band, devs in self._song_band_deviations.items():
+            if devs:
+                band_deviation_summary[band] = {
+                    "mean_db":  round(sum(devs) / len(devs), 2),
+                    "max_db":   round(max(devs, key=abs), 2),
+                    "n_cycles": len(devs),
+                }
+        dominant_issue_band = (
+            max(band_deviation_summary.items(),
+                key=lambda x: abs(x[1]["mean_db"]))[0]
+            if band_deviation_summary else None
+        )
+
         evt_id = self._next_id()
         self._events.append({
-            "id":         evt_id,
-            "timestamp":  ts_str,
-            "type":       "SONG_END",
-            "title":      title,
-            "duration_s": round(duration_s, 1),
+            "id":                    evt_id,
+            "timestamp":             ts_str,
+            "type":                  "SONG_END",
+            "title":                 title,
+            "duration_s":            round(duration_s, 1),
+            "band_deviation_summary": band_deviation_summary,
+            "dominant_issue_band":   dominant_issue_band,
         })
 
         self._completed_songs.append({
@@ -147,6 +167,7 @@ class SessionLogger:
         self._song_recs = []
         self._song_adj  = []
         self._song_lufs = []
+        self._song_band_deviations = {}
 
         self._flush()
         return evt_id
@@ -308,13 +329,36 @@ class SessionLogger:
             "sub_target_adjustment_db":  acoustics.sub_target_adjustment_db(),
             "mic_reliability_weight":    acoustics.mic_reliability_weight(),
         }
+        confidence_weights = {}
+        if hasattr(acoustics, 'frequency_confidence'):
+            confidence_weights = acoustics.frequency_confidence
+        excluded_bands = [b for b, v in confidence_weights.items() if v < 0.5]
+        reduced_bands  = [b for b, v in confidence_weights.items() if 0.5 <= v < 0.8]
+
         entry = {
-            "id":                    self._next_id(),
-            "timestamp":             time.strftime("%H:%M:%S"),
-            "type":                  "VENUE_SESSION_START",
-            "venue_id":              venue_profile.venue_id,
-            "geometry":              geom,
-            "acoustic_adjustments":  acoustic_adj,
+            "id":                       self._next_id(),
+            "timestamp":                time.strftime("%H:%M:%S"),
+            "type":                     "VENUE_SESSION_START",
+            "venue_id":                 venue_profile.venue_id,
+            "geometry":                 geom,
+            "acoustic_adjustments":     acoustic_adj,
+            "frequency_confidence":     confidence_weights,
+            "excluded_bands":           excluded_bands,
+            "reduced_threshold_bands":  reduced_bands,
+        }
+        self._events.append(entry)
+        self._flush()
+
+    def log_confidence_update(self, new_confidence: dict) -> None:
+        """Log when frequency confidence weights change mid-show via settings."""
+        excluded = [b for b, v in new_confidence.items() if v < 0.5]
+        entry = {
+            "id":                   self._next_id(),
+            "timestamp":            time.strftime("%H:%M:%S"),
+            "type":                 "CONFIDENCE_UPDATED",
+            "frequency_confidence": new_confidence,
+            "excluded_bands":       excluded,
+            "song":                 self._current_song_info.get("title", "") if self._current_song_info else "",
         }
         self._events.append(entry)
         self._flush()
@@ -331,6 +375,14 @@ class SessionLogger:
             self._fm_r2_mic_samples.append(fm_result.r_squared_mic)
         if hasattr(fm_result, 'r_squared_board') and fm_result.r_squared_board is not None:
             self._fm_r2_board_samples.append(fm_result.r_squared_board)
+
+        # Always accumulate per-song band deviations regardless of log level
+        if self._current_song_start > 0.0:
+            for ab in (getattr(fm_result, 'actionable_bands', None) or []):
+                band = ab.get('band', '')
+                dev  = ab.get('deviation', 0.0)
+                if band:
+                    self._song_band_deviations.setdefault(band, []).append(float(dev))
 
         # In minimal mode, log only 1 in 10 cycles
         if self._log_level == 'minimal' and (self._cycle_log_counter % 10) != 0:
@@ -367,6 +419,21 @@ class SessionLogger:
                     avg = float(np.mean(fm_result.board_rta_db[mask]))
                     board_rta_by_band[band_name] = round(avg, 1)
 
+        # Active-range normalized shape per band (what actually drives recommendations)
+        mic_normalized_by_band = {}
+        if (FREQ_AXIS is not None and
+                hasattr(mic_analysis, 'normalized_shape_active_db') and
+                mic_analysis.normalized_shape_active_db is not None):
+            for band_name, (lo, hi) in BAND_RANGES.items():
+                mask = (FREQ_AXIS >= lo) & (FREQ_AXIS < hi)
+                if mask.any():
+                    active_val = float(np.mean(mic_analysis.normalized_shape_active_db[mask]))
+                    full_val   = float(np.mean(mic_analysis.normalized_shape_db[mask]))
+                    mic_normalized_by_band[band_name] = {
+                        "active_norm_db": round(active_val, 2),
+                        "full_norm_db":   round(full_val, 2),
+                    }
+
         entry = {
             "id":                self._next_id(),
             "timestamp":         time.strftime("%H:%M:%S"),
@@ -378,6 +445,7 @@ class SessionLogger:
             "deviation_by_band": deviation_by_band,
             "board_rta_by_band": board_rta_by_band,
             "dominant_channels": getattr(fm_result, 'dominant_channels', []),
+            "mic_normalized":    mic_normalized_by_band,
         }
         if self._log_level == 'full' and hasattr(mic_analysis, 'smoothed_spectrum_db') and mic_analysis.smoothed_spectrum_db is not None:
             entry["spectrum_sample"] = [round(float(v), 1) for v in mic_analysis.smoothed_spectrum_db[::10]]
@@ -442,6 +510,29 @@ class SessionLogger:
         self._events.append(entry)
         self._flush()
 
+    def log_suppressed_recommendation(self,
+                                       band: str,
+                                       reason: str,
+                                       confidence: float,
+                                       deviation_db: float,
+                                       channel_label: str = '',
+                                       genre_id: str = '') -> None:
+        """Log a recommendation suppressed before firing (structured, queryable)."""
+        entry = {
+            "id":            self._next_id(),
+            "timestamp":     time.strftime("%H:%M:%S"),
+            "type":          "SUPPRESSED_RECOMMENDATION",
+            "band":          band,
+            "reason":        reason,
+            "confidence":    round(confidence, 2),
+            "deviation_db":  round(deviation_db, 2),
+            "channel":       channel_label,
+            "genre_profile": genre_id,
+            "song":          self._current_song_info.get("title", "") if self._current_song_info else "",
+        }
+        self._events.append(entry)
+        # High-frequency events — flushed on next analysis cycle, not immediately
+
     def log_cal_scan(self, scan_results: list, prior_updates: list) -> None:
         """Log CAL_SCAN event with per-channel band deviations and prior updates."""
         summary = []
@@ -492,6 +583,31 @@ class SessionLogger:
             self._input_state_events_mic_confirmed / self._input_state_events_total
             if self._input_state_events_total > 0 else None
         )
+        # Suppression statistics
+        suppressed_events = [e for e in self._events if e.get("type") == "SUPPRESSED_RECOMMENDATION"]
+        suppression_by_band:   dict[str, int] = {}
+        suppression_by_reason: dict[str, int] = {}
+        for e in suppressed_events:
+            b = e.get("band", "unknown")
+            r = e.get("reason", "unknown")
+            suppression_by_band[b]   = suppression_by_band.get(b, 0) + 1
+            suppression_by_reason[r] = suppression_by_reason.get(r, 0) + 1
+
+        # Genre target accuracy — avg dominant band deviation per genre
+        genre_deviations: dict[str, list[float]] = {}
+        for e in self._events:
+            if e.get("type") == "SONG_END" and e.get("band_deviation_summary"):
+                genre = e.get("genre_profile", "unknown")
+                dominant = e.get("dominant_issue_band")
+                if dominant and dominant in e["band_deviation_summary"]:
+                    genre_deviations.setdefault(genre, []).append(
+                        abs(e["band_deviation_summary"][dominant]["mean_db"])
+                    )
+        genre_accuracy = {
+            g: round(sum(devs) / len(devs), 2)
+            for g, devs in genre_deviations.items() if devs
+        }
+
         entry = {
             "id":          self._next_id(),
             "timestamp":   time.strftime("%H:%M:%S"),
@@ -509,6 +625,12 @@ class SessionLogger:
                 "confirmation_rate":  round(confirmation_rate, 3) if confirmation_rate is not None else None,
             },
             "config_changes": self._config_change_count,
+            "suppression_stats": {
+                "total_suppressed": len(suppressed_events),
+                "by_band":          suppression_by_band,
+                "by_reason":        suppression_by_reason,
+            },
+            "genre_accuracy": genre_accuracy,
         }
         self._events.append(entry)
         self._flush()

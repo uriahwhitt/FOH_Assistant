@@ -605,7 +605,21 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
             engine.set_genre(st.active_genre)
 
         engine.set_transition(False)
-        logger.log_song_start(song, max(slot, 1), st.active_genre.id)
+        _genre_target_for_log = {}
+        if st.active_genre:
+            try:
+                import numpy as _np
+                from core.forward_model import BAND_RANGES as _BR
+                from core.channel_model import FREQ_AXIS as _FA
+                _ta = _genre_to_shape_array(st.active_genre)
+                for _bn, (_lo, _hi) in _BR.items():
+                    _m = (_FA >= _lo) & (_FA < _hi)
+                    if _m.any():
+                        _genre_target_for_log[_bn] = round(float(_np.mean(_ta[_m])), 2)
+            except Exception:
+                pass
+        logger.log_song_start(song, max(slot, 1), st.active_genre.id,
+                               genre_target_bands=_genre_target_for_log)
         engine.set_transition(True)
 
         ts = time.strftime("%H:%M:%S")
@@ -712,6 +726,7 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                                 mic_analyzer._confidence_mask = new_profile.acoustics.confidence_weighted_freq_mask(_FA, threshold=0.5)
                             if display_buffer is not None:
                                 display_buffer.update(band_confidence=new_profile.acoustics.frequency_confidence)
+                            logger.log_confidence_update(new_profile.acoustics.frequency_confidence)
                             print("[SETTINGS] Geometry reloaded with updated mic distances")
                         except Exception as _e:
                             print(f"[SETTINGS] Could not reload geometry: {_e}")
@@ -798,11 +813,11 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                     _show_print(rec.format_terminal())
                     _show_print("")
                 for _sup in engine._suppressed_bands:
-                    logger.log_warning(
-                        f"[CONFIDENCE] Suppressed {_sup['band']} "
-                        f"(conf={_sup['confidence']:.1f}, "
-                        f"dev={_sup.get('deviation_db', 0.0):+.1f}dB, "
-                        f"reason={_sup['reason']})"
+                    logger.log_suppressed_recommendation(
+                        band=_sup['band'],
+                        reason=_sup['reason'],
+                        confidence=_sup['confidence'],
+                        deviation_db=_sup.get('deviation_db', 0.0),
                     )
 
             while kb_queue:
