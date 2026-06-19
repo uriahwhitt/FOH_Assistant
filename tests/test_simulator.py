@@ -17,7 +17,7 @@ from simulator.x32_sim import (
     fader_float_to_db,
     hz_to_eq_float,
 )
-from core.osc_client import parse_meters_1
+from core.osc_client import parse_meters_1, parse_meters_15
 
 SCENARIOS_DIR = Path(__file__).parent.parent / "simulator" / "scenarios"
 
@@ -235,6 +235,51 @@ class TestSimBoardMeterBlob:
         num_floats = struct.unpack_from("<I", blob, 4)[0]
         assert num_floats == 96        # 32 ch_rms + 32 gate_gr + 32 dyn_gr
         assert len(blob) == 4 + 4 + num_floats * 4
+
+
+# ===========================================================================
+# RTA blob (Bug 1 regression)
+# ===========================================================================
+
+class TestSimBoardRtaBlob:
+    def test_rta_blob_parses_to_100_values(self):
+        """get_rta_blob() must produce a blob that parse_meters_15() reads as exactly 100 values."""
+        board = SimBoard()
+        blob  = board.get_rta_blob()
+        rta   = parse_meters_15(blob)
+        assert len(rta) == 100
+        assert all(-128.0 <= v <= 0.0 for v in rta), "RTA values should be in dBFS range"
+        assert rta.max() - rta.min() > 5.0, "Realistic RTA should have at least 5dB variation"
+
+    def test_rta_values_in_dbfs_range(self):
+        board = SimBoard()
+        rta   = parse_meters_15(board.get_rta_blob())
+        assert all(-128.0 <= v <= 0.0 for v in rta), "RTA values should be in dBFS range"
+
+    def test_rta_blob_does_not_affect_meter_blob(self):
+        """get_rta_blob() and get_meter_blob() must stay independent."""
+        board  = SimBoard()
+        result = parse_meters_1(board.get_meter_blob())
+        assert len(result["channel_rms"]) == 32   # meter blob unaffected
+
+    def test_rta_bass_heavier_than_air(self):
+        """Board RTA should show more energy in bass than air band (realistic mix)."""
+        import numpy as np
+        board = SimBoard()
+        rta   = parse_meters_15(board.get_rta_blob())
+        bass_avg = float(np.mean(rta[10:20]))   # ~80–250 Hz
+        air_avg  = float(np.mean(rta[90:100]))  # ~10 kHz+
+        assert bass_avg > air_avg, (
+            f"Bass ({bass_avg:.1f}dB) should be louder than air ({air_avg:.1f}dB)"
+        )
+
+    def test_muting_all_channels_produces_silent_rta(self):
+        """With all channels muted, RTA should be near the silence floor."""
+        board = SimBoard()
+        for ch in range(1, 33):
+            board.set(ch, "on", 0, silent=True)
+        rta = parse_meters_15(board.get_rta_blob())
+        assert rta.max() <= -50.0, "All-muted RTA should be near silence floor"
 
 
 # ===========================================================================

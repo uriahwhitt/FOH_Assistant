@@ -25,8 +25,15 @@ _RTA_FREQS = np.array([
 ], dtype=float)
 
 
-def _interpolate_rta_to_freq_axis(rta_100: np.ndarray) -> np.ndarray:
-    """Interpolate 100-band board RTA to FREQ_AXIS (1000 log-spaced points)."""
+def _interpolate_rta_to_freq_axis(rta_100) -> np.ndarray:
+    """Interpolate 100-band board RTA to FREQ_AXIS (1000 log-spaced points).
+
+    Returns a flat -60dBFS array if rta_100 is None, empty, or not exactly
+    100 elements — avoids crashing during simulator startup or when the
+    /meters/15 subscription hasn't fired yet.
+    """
+    if rta_100 is None or len(rta_100) != 100:
+        return np.full(len(FREQ_AXIS), -60.0)
     log_rta  = np.log10(_RTA_FREQS)
     log_axis = np.log10(FREQ_AXIS)
     return np.interp(log_axis, log_rta, rta_100,
@@ -197,6 +204,8 @@ class ForwardModel:
         predicted_db = 10.0 * np.log10(np.maximum(predicted_linear, 1e-12))
 
         # 3. Deviations — interpolate 100-band board RTA to FREQ_AXIS first
+        if board_rta_db is None or len(board_rta_db) != 100:
+            board_rta_db = np.full(100, -60.0)
         board_rta_on_axis  = _interpolate_rta_to_freq_axis(board_rta_db)
         mic_deviation_db   = mic_analysis.smoothed_spectrum_db - predicted_db
         board_deviation_db = board_rta_on_axis - predicted_db

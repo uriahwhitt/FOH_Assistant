@@ -401,6 +401,8 @@ def main() -> None:
     print_header(band_cfg, mode_label, active_genre, x32_ip, x32_port,
                  capture.device_name, logger.log_path, setlist)
 
+    display = None   # may be set below in show mode; initialized here for teardown
+
     if args.baseline:
         from core.baseline import run_baseline_mode
         run_baseline_mode(band_cfg, profiles, active_genre, osc, capture,
@@ -432,7 +434,8 @@ def main() -> None:
             if not getattr(args, 'no_venue', False):
                 logger.log_warning("No venue profile — acoustic corrections disabled")
 
-        mic_analyzer = MicAnalyzer(venue_acoustics)
+        mic_analyzer = MicAnalyzer(venue_acoustics,
+                                    silence_threshold_lufs=venue_acoustics.silence_threshold_lufs())
         forward_model = ForwardModel(venue_acoustics)
         spectrum_history = SpectrumHistory()
 
@@ -453,12 +456,19 @@ def main() -> None:
 
         from core.display_buffer import DisplayBuffer
         display_buffer = DisplayBuffer()
-        display        = None
+
+        if active_genre:
+            from core.third_octave import to_third_octave, normalize_third_octave
+            display_buffer.update(
+                genre_target_bands=normalize_third_octave(
+                    to_third_octave(_genre_to_shape_array(active_genre))
+                ),
+                genre_name=active_genre.id,
+            )
 
         if args.display:
             from core.display_window import launch_display
             display = launch_display(display_buffer)
-            _start_display_path(mic_analyzer, capture, venue_acoustics, display_buffer)
 
         run_show_mode(band_cfg, active_genre, profiles, setlist,
                       osc, capture, analyzer, logger, channels,
@@ -467,6 +477,8 @@ def main() -> None:
                       rta_engine=rta_engine, display_buffer=display_buffer,
                       session_cfg=session_cfg, venue_id=venue_id)
 
+    if display is not None:
+        display.stop()
     capture.stop()
     osc.close()
 
@@ -516,8 +528,20 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
     print("  settings = open settings menu (mic placement, X32 IP, etc.)\n")
 
     kb_queue: list = []
+    _kb_gate = threading.Event()
+    _kb_gate.set()          # open by default; cleared while settings menu is active
+    _settings_state: dict = {'thread': None, 'result': None, 'active': False}
+
+    def _show_print(msg: str, priority: bool = False) -> None:
+        """Print to terminal, suppressing routine output while settings menu is open."""
+        if priority:
+            print(f"[!] ALERT: {msg}")
+        elif not _settings_state['active']:
+            print(msg)
+
     def kb_listener():
         while True:
+            _kb_gate.wait()         # pause here when settings has exclusive stdin
             line = sys.stdin.readline().strip().lower()
             kb_queue.append(line)
 
@@ -600,8 +624,11 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
 
         if display_buffer is not None and st.active_genre:
             try:
+                from core.third_octave import to_third_octave, normalize_third_octave
                 display_buffer.update(
-                    genre_target=_genre_to_shape_array(st.active_genre),
+                    genre_target_bands=normalize_third_octave(
+                        to_third_octave(_genre_to_shape_array(st.active_genre))
+                    ),
                     song_name=song.get('title', '') if song else '',
                     genre_name=st.active_genre.id,
                 )
@@ -651,6 +678,31 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
         while True:
             cycle_start = time.time()
 
+            # Apply settings result once the settings thread has finished
+            if (_settings_state['active'] and
+                    _settings_state['thread'] is not None and
+                    not _settings_state['thread'].is_alive()):
+                updated = _settings_state['result']
+                if updated is not None:
+                    if (updated.mic_placement.has_distances and
+                            updated.mic_placement.speaker_l_to_mic !=
+                            session_cfg.mic_placement.speaker_l_to_mic):
+                        try:
+                            from core.geometry import load_venue_profile
+                            new_profile = load_venue_profile(
+                                updated.venue_id or venue_id or '', session=updated
+                            )
+                            if mic_analyzer is not None:
+                                mic_analyzer.venue_acoustics     = new_profile.acoustics
+                                mic_analyzer.correction_curve_db = new_profile.acoustics.mic_correction_curve()
+                                mic_analyzer.room_mode_mask_arr  = new_profile.acoustics.room_mode_mask()
+                            print("[SETTINGS] Geometry reloaded with updated mic distances")
+                        except Exception as _e:
+                            print(f"[SETTINGS] Could not reload geometry: {_e}")
+                    session_cfg = updated
+                _settings_state.update({'active': False, 'thread': None, 'result': None})
+                _kb_gate.set()   # resume kb_listener
+
             current_channels = osc.build_channel_states()
             if rta_engine is not None:
                 rta_engine.check_watchdog()
@@ -675,9 +727,12 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                 board_rta_db = osc.board_rta_db
                 if display_buffer is not None:
                     from core.mic_analyzer import normalize_to_shape
-                    display_buffer.update(
-                        board_rta_fast=normalize_to_shape(board_rta_db)
-                    )
+                    from core.forward_model import _interpolate_rta_to_freq_axis
+                    from core.third_octave import to_third_octave, normalize_third_octave
+                    rta_1000  = _interpolate_rta_to_freq_axis(board_rta_db)
+                    rta_shape = normalize_to_shape(rta_1000)
+                    rta_bands = normalize_third_octave(to_third_octave(rta_shape))
+                    display_buffer.update(board_rta_fast=rta_bands)
                 ch_configs   = osc.channel_configs
                 ch_meters    = osc.channel_meters
                 if spectrum_history is not None:
@@ -691,9 +746,14 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                     logger.log_analysis_cycle(fm_result, mic_result)
                 if display_buffer is not None and not mic_result.is_silent:
                     from core.mic_analyzer import normalize_to_shape
+                    from core.forward_model import _interpolate_rta_to_freq_axis
+                    from core.third_octave import to_third_octave, normalize_third_octave
+                    rta_1000  = _interpolate_rta_to_freq_axis(board_rta_db)
+                    rta_bands = normalize_third_octave(to_third_octave(normalize_to_shape(rta_1000)))
+                    mic_bands = normalize_third_octave(to_third_octave(mic_result.normalized_shape_db))
                     display_buffer.update(
-                        board_rta_shape=normalize_to_shape(board_rta_db),
-                        mic_shape=mic_result.normalized_shape_db,
+                        board_rta_bands=rta_bands,
+                        mic_bands=mic_bands,
                         band_highlights=_compute_band_highlights(mic_result, st.active_genre),
                         band_peaks=_extract_band_peaks(mic_result),
                         lufs=mic_result.lufs,
@@ -714,8 +774,8 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                 recs = engine.evaluate(analysis, current_channels, mic_analysis=mic_result)
                 for rec in recs:
                     logger.log_recommendation(rec)
-                    print(rec.format_terminal())
-                    print()
+                    _show_print(rec.format_terminal())
+                    _show_print("")
 
             while kb_queue:
                 cmd = kb_queue.pop(0)
@@ -900,25 +960,20 @@ def run_show_mode(band_cfg: dict, genre, profiles: dict, setlist,
                             print(f"\nISO: channel {ch_num} not in channel map")
 
                 elif cmd == "settings":
-                    from core.settings import SettingsMenu
-                    from core.geometry import load_venue_profile
-                    menu = SettingsMenu(session=session_cfg, running_show=True)
-                    updated = menu.run()
-                    if (updated.mic_placement.has_distances and
-                            updated.mic_placement.speaker_l_to_mic !=
-                            session_cfg.mic_placement.speaker_l_to_mic):
-                        try:
-                            new_profile = load_venue_profile(
-                                updated.venue_id or venue_id or '', session=updated
-                            )
-                            if mic_analyzer is not None:
-                                mic_analyzer.venue_acoustics     = new_profile.acoustics
-                                mic_analyzer.correction_curve_db = new_profile.acoustics.mic_correction_curve()
-                                mic_analyzer.room_mode_mask_arr  = new_profile.acoustics.room_mode_mask()
-                            print("[SETTINGS] Geometry reloaded with updated mic distances")
-                        except Exception as e:
-                            print(f"[SETTINGS] Could not reload geometry: {e}")
-                    session_cfg = updated
+                    if _settings_state['active']:
+                        print("[SETTINGS] Settings menu is already open.")
+                    else:
+                        _kb_gate.clear()       # give settings exclusive stdin access
+                        _settings_state['active'] = True
+
+                        def _run_settings_thread(_sess=session_cfg):
+                            from core.settings import SettingsMenu
+                            menu = SettingsMenu(session=_sess, running_show=True)
+                            _settings_state['result'] = menu.run()
+
+                        _t = threading.Thread(target=_run_settings_thread, daemon=True)
+                        _t.start()
+                        _settings_state['thread'] = _t
 
                 elif cmd == "skip":
                     if not st.song_active:
@@ -1081,9 +1136,12 @@ def run_soundcheck_mode(band_cfg: dict, genre, profiles: dict, setlist,
     print(SEP)
 
     kb_queue: list[str] = []
+    _sc_kb_gate = threading.Event()
+    _sc_kb_gate.set()
 
     def kb_listener():
         while True:
+            _sc_kb_gate.wait()
             line = sys.stdin.readline().strip().lower()
             kb_queue.append(line)
 
@@ -1125,10 +1183,14 @@ def run_soundcheck_mode(band_cfg: dict, genre, profiles: dict, setlist,
                 elif cmd == "g":
                     print_room_analysis(analysis, genre)
                 elif cmd == "settings":
-                    from core.settings import SettingsMenu
-                    from models.session import SessionConfig
-                    sc = SessionConfig.load()
-                    SettingsMenu(session=sc, running_show=True).run()
+                    _sc_kb_gate.clear()
+                    def _run_sc_settings():
+                        from core.settings import SettingsMenu
+                        from models.session import SessionConfig
+                        sc = SessionConfig.load()
+                        SettingsMenu(session=sc, running_show=True).run()
+                        _sc_kb_gate.set()
+                    threading.Thread(target=_run_sc_settings, daemon=True).start()
                 elif cmd == "confirm":
                     _soundcheck_confirm(current_channels, genre, band_cfg, logger)
                     return
@@ -1535,8 +1597,8 @@ def _start_display_path(mic_analyzer, audio_capture, venue_acoustics, display_bu
                     audio_capture, venue_acoustics
                 )
                 display_buffer.update(mic_shape_fast=fast_shape)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[DISPLAY PATH] error: {e}")
         _display_timer = threading.Timer(0.1, _tick)
         _display_timer.daemon = True
         _display_timer.start()

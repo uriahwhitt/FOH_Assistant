@@ -223,9 +223,10 @@ def compute_lufs(audio_buffer: np.ndarray, sample_rate: int) -> float:
         return -70.0
 
 
-def is_room_silent(lufs: float, band_levels: dict) -> bool:
+def is_room_silent(lufs: float, band_levels: dict,
+                   threshold_lufs: float = ROOM_SILENCE_THRESHOLD_LUFS) -> bool:
     """True if the room is silent (between songs, before show, etc.)."""
-    if lufs < ROOM_SILENCE_THRESHOLD_LUFS:
+    if lufs < threshold_lufs:
         return True
     if all(b['avg_db'] < -55.0 for b in band_levels.values()):
         return True
@@ -292,7 +293,7 @@ class MicAnalyzer:
     Call analyze() once per 500ms analysis cycle.
     """
 
-    def __init__(self, venue_acoustics):
+    def __init__(self, venue_acoustics, silence_threshold_lufs: float = -50.0):
         """
         venue_acoustics: VenueAcoustics instance from core.geometry.
         Pass IrregularRoomAcoustics({}) when no venue profile is loaded.
@@ -304,6 +305,7 @@ class MicAnalyzer:
         self._ema_display        = EMAState(alpha=DISPLAY_EMA_ALPHA_MIC)
         self._prev_spectrum: Optional[np.ndarray] = None
         self._current_analysis: Optional['MicAnalysis'] = None
+        self._silence_threshold  = silence_threshold_lufs
 
     def analyze(self, audio_capture) -> MicAnalysis:
         """Full analysis pipeline. Call once per 500ms cycle."""
@@ -335,7 +337,7 @@ class MicAnalyzer:
         normalized_shape_db   = normalize_to_shape(smoothed_spectrum_db)
 
         band_levels  = compute_band_levels(smoothed_spectrum_db)
-        silent       = is_room_silent(lufs, band_levels)
+        silent       = is_room_silent(lufs, band_levels, self._silence_threshold)
 
         room_mode_flags = self.room_mode_mask_arr & (smoothed_spectrum_db > -30.0)
 
@@ -381,7 +383,7 @@ class MicAnalyzer:
         n_samples    = int(DISPLAY_WINDOW_SECONDS * audio_capture.sample_rate)
         window_audio = audio_capture.get_display_window(n_samples)
 
-        if len(window_audio) < 512:
+        if window_audio is None or len(window_audio) < 512:
             return np.zeros(N_FREQS)
 
         n        = len(window_audio)

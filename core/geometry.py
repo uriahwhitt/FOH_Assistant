@@ -244,6 +244,10 @@ class VenueAcoustics(ABC):
         """Per-frequency reliability weight [0.0, 1.0]. Reduced near comb notches."""
         pass
 
+    def silence_threshold_lufs(self) -> float:
+        """LUFS silence gate threshold. Overridable via venue YAML silence_threshold_lufs."""
+        return float(getattr(self, 'config', {}).get('silence_threshold_lufs', -50.0))
+
     @classmethod
     def from_venue_profile(cls, venue_config: dict) -> 'VenueAcoustics':
         """Factory — instantiate the correct subclass from venue config."""

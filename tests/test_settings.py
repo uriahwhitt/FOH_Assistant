@@ -219,3 +219,30 @@ class TestSettingsMenuImports:
         from core.settings import SettingsMenu
         menu = SettingsMenu(session=SessionConfig(), running_show=False)
         assert menu._is_outdoor() is False
+
+
+class TestSettingsMenuThreadSafety:
+
+    def test_settings_menu_instantiates_in_non_main_thread(self):
+        """SettingsMenu must be instantiatable from a daemon thread without deadlock."""
+        import threading
+        from core.settings import SettingsMenu
+
+        errors  = []
+        results = {}
+
+        def _run():
+            try:
+                menu = SettingsMenu(session=SessionConfig(), running_show=True)
+                assert menu is not None
+                assert menu.running_show is True
+                results['ok'] = True
+            except Exception as e:
+                errors.append(e)
+
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+        t.join(timeout=2.0)
+
+        assert not errors, f"SettingsMenu raised in thread: {errors}"
+        assert results.get('ok'), "SettingsMenu did not complete in thread"

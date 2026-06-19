@@ -1474,8 +1474,9 @@ class TestDisplayPath:
     def test_display_buffer_update_and_snapshot(self):
         """update() and snapshot() round-trip correctly."""
         from core.display_buffer import DisplayBuffer
+        from core.third_octave import N_THIRD_OCTAVE
         buf  = DisplayBuffer()
-        arr  = np.ones(1000) * 3.0
+        arr  = np.ones(N_THIRD_OCTAVE) * 3.0
         buf.update(mic_shape_fast=arr, song_name="Test Song")
         snap = buf.snapshot()
         assert np.allclose(snap['mic_shape_fast'], arr)
@@ -1501,14 +1502,16 @@ class TestDisplayPath:
         stop   = _threading.Event()
 
         def writer():
+            from core.third_octave import N_THIRD_OCTAVE as _N
             while not stop.is_set():
-                buf.update(mic_shape_fast=np.random.randn(1000))
+                buf.update(mic_shape_fast=np.random.randn(_N))
 
         def reader():
+            from core.third_octave import N_THIRD_OCTAVE as _N
             while not stop.is_set():
                 try:
                     snap = buf.snapshot()
-                    assert len(snap['mic_shape_fast']) == 1000
+                    assert len(snap['mic_shape_fast']) == _N
                 except Exception as e:
                     errors.append(e)
 
@@ -1606,15 +1609,28 @@ class TestDisplayHelpers:
         result = _genre_to_shape_array(genre)
         assert len(result) == N_FREQS
 
+    def test_genre_to_shape_array_not_flat_for_real_profile(self):
+        """_genre_to_shape_array must return a non-flat array for a real genre profile."""
+        from main import _genre_to_shape_array
+        from core.config_loader import load_genre_profiles
+        profiles = load_genre_profiles()
+        genre = profiles.get('Glam Metal') or next(iter(profiles.values()), None)
+        if genre is None:
+            return
+        result = _genre_to_shape_array(genre)
+        assert len(result) == N_FREQS
+        assert not np.allclose(result, 0.0), "Genre target shape should not be flat"
+
     def test_display_buffer_full_cycle(self):
         """Simulate a full analysis-cycle update and verify snapshot."""
         from core.display_buffer import DisplayBuffer
+        from core.third_octave import N_THIRD_OCTAVE
         buf   = DisplayBuffer()
-        shape = np.random.randn(N_FREQS) * 3.0
+        bands = np.random.randn(N_THIRD_OCTAVE) * 3.0
         buf.update(
-            mic_shape=shape,
-            board_rta_shape=shape * 0.5,
-            genre_target=np.zeros(N_FREQS),
+            mic_bands=bands,
+            board_rta_bands=bands * 0.5,
+            genre_target_bands=np.zeros(N_THIRD_OCTAVE),
             band_highlights={'upper_mid': 3.2},
             band_peaks={'upper_mid': (3150.0, 2.1)},
             song_name='Round and Round',
@@ -1628,3 +1644,151 @@ class TestDisplayHelpers:
         assert abs(snap['lufs'] - (-18.5)) < 0.01
         assert snap['is_silent'] is False
         assert snap['band_highlights']['upper_mid'] == pytest.approx(3.2)
+
+
+# ===========================================================================
+# ForwardModel RTA guard (Bug 2 regression)
+# ===========================================================================
+
+class TestForwardModelRtaGuard:
+    """_interpolate_rta_to_freq_axis must not crash on bad input."""
+
+    def test_none_input_returns_1000_point_fallback(self):
+        import numpy as np
+        from core.forward_model import _interpolate_rta_to_freq_axis
+        result = _interpolate_rta_to_freq_axis(None)
+        assert len(result) == 1000
+
+    def test_wrong_length_returns_1000_point_fallback(self):
+        import numpy as np
+        from core.forward_model import _interpolate_rta_to_freq_axis
+        result = _interpolate_rta_to_freq_axis(np.full(50, -40.0))
+        assert len(result) == 1000
+
+    def test_correct_length_interpolates_not_fallback(self):
+        import numpy as np
+        from core.forward_model import _interpolate_rta_to_freq_axis
+        result = _interpolate_rta_to_freq_axis(np.full(100, -40.0))
+        assert len(result) == 1000
+        assert not np.all(result == -60.0)   # must not be the flat fallback value
+
+
+# ===========================================================================
+# THIRD-OCTAVE BAND AVERAGING TESTS
+# ===========================================================================
+
+class TestThirdOctave:
+
+    def test_to_third_octave_returns_31_bands(self):
+        from core.third_octave import to_third_octave
+        from core.channel_model import FREQ_AXIS
+        spectrum = np.zeros(len(FREQ_AXIS))
+        result = to_third_octave(spectrum)
+        assert len(result) == 31
+
+    def test_flat_spectrum_produces_equal_bands(self):
+        """A flat input spectrum should produce all equal band values."""
+        from core.third_octave import to_third_octave
+        from core.channel_model import FREQ_AXIS
+        flat   = np.full(len(FREQ_AXIS), -20.0)
+        result = to_third_octave(flat)
+        assert np.allclose(result, result[0], atol=0.01)
+
+    def test_normalize_third_octave_mean_zero(self):
+        """normalize_third_octave() output should have mean ≈ 0."""
+        from core.third_octave import normalize_third_octave
+        bands  = np.array([float(i) for i in range(31)])
+        result = normalize_third_octave(bands)
+        assert abs(float(np.mean(result))) < 0.01
+
+    def test_bass_heavy_spectrum_shows_bass_elevation(self):
+        """Heavy bass spectrum should show positive values in bass bands."""
+        from core.third_octave import to_third_octave, normalize_third_octave
+        from core.channel_model import FREQ_AXIS
+        spectrum = np.full(len(FREQ_AXIS), -40.0)
+        bass_mask = (FREQ_AXIS >= 80) & (FREQ_AXIS <= 250)
+        spectrum[bass_mask] = -20.0
+        bands  = to_third_octave(spectrum)
+        normed = normalize_third_octave(bands)
+        bass_region = normed[4:11]
+        assert float(np.mean(bass_region)) > 3.0, \
+            f"Bass region should be elevated, got {bass_region}"
+
+
+# ===========================================================================
+# SHAPE NORMALIZATION LEVEL-INDEPENDENCE TESTS
+# ===========================================================================
+
+class TestShapeNormalization:
+    """normalize_to_shape removes overall level — same shape, different levels, same result."""
+
+    def _make_mic(self, normalized_shape_db):
+        empty = np.zeros(N_FREQS)
+        return MicAnalysis(
+            lufs=-20.0, raw_spectrum_db=empty, corrected_spectrum_db=empty,
+            smoothed_spectrum_db=empty, spectral_delta_db=empty,
+            band_levels={}, room_mode_flags=np.zeros(N_FREQS, dtype=bool),
+            correction_applied_db=empty, is_silent=False, timestamp_ms=0.0,
+            normalized_shape_db=normalized_shape_db,
+        )
+
+    def test_normalize_to_shape_removes_level(self):
+        """Two spectra with same shape but different levels normalize identically."""
+        from core.mic_analyzer import normalize_to_shape
+
+        shape = np.linspace(5, -5, N_FREQS)
+        loud  = shape + 20.0
+        quiet = shape - 20.0
+
+        result_loud  = normalize_to_shape(loud)
+        result_quiet = normalize_to_shape(quiet)
+
+        assert np.allclose(result_loud, result_quiet, atol=1e-6), (
+            "Same shape at different levels should normalize identically"
+        )
+
+    def test_band_highlights_are_level_independent(self):
+        """Band highlight deviations should not change when overall level changes."""
+        from core.mic_analyzer import normalize_to_shape
+        from main import _compute_band_highlights
+        from models.genre_profile import GenreProfile
+
+        band_names = ('sub', 'bass', 'low_mid', 'mid_low', 'mid_high',
+                      'upper_mid', 'presence', 'air')
+        genre = GenreProfile(
+            id='test', name='test', examples=[], target_lufs=-18.0,
+            dynamic_range='medium',
+            frequency_targets={b: 0.0 for b in band_names},
+            instrument_weights=[], notes='',
+        )
+
+        shape = np.zeros(N_FREQS)
+        shape[:200] = 8.0
+        shape[200:] = -2.0
+
+        mic_loud  = self._make_mic(normalize_to_shape(shape + 30))
+        mic_quiet = self._make_mic(normalize_to_shape(shape - 10))
+
+        highlights_loud  = _compute_band_highlights(mic_loud,  genre)
+        highlights_quiet = _compute_band_highlights(mic_quiet, genre)
+
+        for band in highlights_loud:
+            assert abs(highlights_loud[band] - highlights_quiet[band]) < 0.1, (
+                f"Band {band} highlight changed with level: "
+                f"{highlights_loud[band]:.2f} vs {highlights_quiet[band]:.2f}"
+            )
+
+    def test_recommendation_engine_level_independent(self):
+        """normalized_shape_db should be identical when spectra share shape but differ in level."""
+        from core.mic_analyzer import normalize_to_shape
+
+        shape = np.zeros(N_FREQS)
+        shape[:200] = 8.0
+        shape[200:] = -2.0
+
+        mic_loud  = self._make_mic(normalize_to_shape(shape + 30))
+        mic_quiet = self._make_mic(normalize_to_shape(shape - 10))
+
+        assert np.allclose(
+            mic_loud.normalized_shape_db, mic_quiet.normalized_shape_db, atol=1e-6
+        ), "normalized_shape_db must be level-independent"

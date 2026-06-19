@@ -295,17 +295,18 @@ class SessionLogger:
         """Log VENUE_SESSION_START event with geometry and acoustic details."""
         from core.geometry import sub_top_phase_warning
         self._venue_id = venue_profile.venue_id
+        g         = venue_profile.geometry
         acoustics = venue_profile.acoustics
         geom = {
-            "comb_notch_frequencies_hz": getattr(acoustics, 'comb_notch_frequencies_hz', []),
-            "room_modes_hz": getattr(acoustics, 'room_modes_hz', []),
-            "sub_phase": getattr(acoustics, 'sub_phase', 'unknown'),
-            "sub_top_phase_warning": sub_top_phase_warning(acoustics),
+            "comb_notch_frequencies_hz": g.comb_notch_frequencies_hz,
+            "room_modes_hz":             g.room_modes_hz,
+            "sub_phase":                 g.sub_phase_at_crossover_deg,
+            "sub_top_phase_warning":     sub_top_phase_warning(g.sub_phase_at_crossover_deg),
         }
         acoustic_adj = {
-            "lufs_target_adjustment_db": getattr(acoustics, 'lufs_target_adjustment_db', 0.0),
-            "sub_target_adjustment_db": getattr(acoustics, 'sub_target_adjustment_db', 0.0),
-            "mic_reliability_weight": getattr(acoustics, 'mic_reliability_weight', 1.0),
+            "lufs_target_adjustment_db": acoustics.lufs_target_adjustment_db(),
+            "sub_target_adjustment_db":  acoustics.sub_target_adjustment_db(),
+            "mic_reliability_weight":    acoustics.mic_reliability_weight(),
         }
         entry = {
             "id":                    self._next_id(),

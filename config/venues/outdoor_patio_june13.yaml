@@ -2,6 +2,7 @@ venue:
   name: "Outdoor Patio — June 13"
   id: "outdoor_patio_june13"
   capacity: 150
+  silence_threshold_lufs: -60.0
 
   stage:
     type: "open_air"

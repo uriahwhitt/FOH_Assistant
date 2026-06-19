@@ -66,6 +66,72 @@ def hz_to_eq_float(hz: float) -> float:
     return (math.log10(hz) - math.log10(20.0)) / (math.log10(20000.0) - math.log10(20.0))
 
 
+def _sim_eq_float_to_hz(f: float) -> float:
+    """Convert X32 EQ freq float [0, 1] to Hz."""
+    return 10 ** (math.log10(20.0) + f * (math.log10(20000.0) - math.log10(20.0)))
+
+
+def _interpolate_shape(freq_hz: float, centers: list, shape: dict) -> float:
+    """Log-frequency linear interpolation of instrument spectral shape."""
+    if freq_hz <= centers[0]:
+        return shape[centers[0]]
+    if freq_hz >= centers[-1]:
+        return shape[centers[-1]]
+    log_freq = math.log10(freq_hz)
+    for i in range(len(centers) - 1):
+        lo, hi = centers[i], centers[i + 1]
+        if lo <= freq_hz <= hi:
+            t = (log_freq - math.log10(lo)) / (math.log10(hi) - math.log10(lo))
+            return shape[lo] + t * (shape[hi] - shape[lo])
+    return 0.0
+
+
+def _sim_peaking_db(freq_hz: float, center_hz: float,
+                     gain_db: float, q: float) -> float:
+    """Gaussian bell-curve approximation of a peaking EQ filter."""
+    if center_hz <= 0 or q <= 0 or freq_hz <= 0:
+        return 0.0
+    bw_octaves  = 1.0 / q
+    octave_dist = math.log2(freq_hz / center_hz)
+    sigma       = bw_octaves / 2.0
+    return gain_db * math.exp(-(octave_dist ** 2) / (2 * sigma ** 2))
+
+
+# ---------------------------------------------------------------------------
+# Per-channel instrument spectral shapes (Whitt's End channel map)
+# ---------------------------------------------------------------------------
+
+# Approximate dB contributions at frequency band centres {hz: relative_db}.
+# Used by get_rta_blob() to build a realistic mix RTA from channel state.
+INSTRUMENT_SHAPES = {
+    1:  {40: +8, 80: +6, 150: +2, 315: -4, 750: -8, 1500: -6, 3000: +2, 6000: -6,  12000: -12},  # Kick
+    4:  {40: +2, 80: +4, 150: +4, 315: +2, 750: +0, 1500: +0, 3000: +2, 6000: +0,  12000: -4},   # Drum Rack
+    5:  {40: +2, 80: +4, 150: +6, 315: +4, 750: +0, 1500: -4, 3000: -6, 6000: -8,  12000: -12},  # Floor Tom
+    6:  {40: -8, 80: -4, 150: +2, 315: +4, 750: +4, 1500: +2, 3000: +4, 6000: +6,  12000: +2},   # Acoustic Guitar
+    7:  {40: -8, 80: -4, 150: +0, 315: +2, 750: +4, 1500: +4, 3000: +6, 6000: +4,  12000: -2},   # Guitar 1
+    8:  {40: -8, 80: -4, 150: +0, 315: +2, 750: +4, 1500: +4, 3000: +6, 6000: +4,  12000: -2},   # Guitar 2
+    9:  {40: -12, 80: -8, 150: -4, 315: +0, 750: +4, 1500: +6, 3000: +6, 6000: +4, 12000: +0},   # Lead Vocal
+    10: {40: -12, 80: -8, 150: -4, 315: +0, 750: +4, 1500: +6, 3000: +6, 6000: +4, 12000: +0},   # Drum Vocal
+    11: {40: -12, 80: -8, 150: -4, 315: +0, 750: +4, 1500: +6, 3000: +6, 6000: +4, 12000: +0},   # Bassist Vocal
+    12: {40: -12, 80: -8, 150: -4, 315: +0, 750: +4, 1500: +6, 3000: +6, 6000: +4, 12000: +0},   # Keys Vocal
+    13: {40: +8, 80: +10, 150: +6, 315: +2, 750: -2, 1500: -6, 3000: -8, 6000: -10, 12000: -14}, # Bass DI
+    15: {40: -4, 80: -2, 150: +2, 315: +4, 750: +4, 1500: +4, 3000: +4, 6000: +2,  12000: +0},   # Keys
+}
+DEFAULT_SHAPE = {40: -6, 80: -4, 150: -2, 315: -2, 750: -2, 1500: -2, 3000: -2, 6000: -4, 12000: -8}
+
+# 100 RTA frequency bands (mirrors RTA_FREQS_HZ in core/osc_client.py)
+RTA_FREQS_HZ = [
+    20,  21,  22,  24,  26,  28,  30,  32,  34,  36,  39,  42,  45,  48,  52,  55,  59,
+    63,  68,  73,  78,  84,  90,  96,  103, 110, 118, 127, 136, 146, 156, 167,
+    179, 192, 206, 221, 237, 254, 272, 292, 313, 335, 359, 385, 412, 442,
+    474, 508, 544, 583, 625, 670, 718, 769, 825, 884, 947, 1020, 1090,
+    1170, 1250, 1340, 1440, 1540, 1650, 1770, 1890, 2030, 2180, 2330,
+    2500, 2680, 2870, 3080, 3300, 3540, 3790, 4060, 4350, 4670, 5000,
+    5360, 5740, 6160, 6600, 7070, 7580, 8120, 8710, 9330, 10000, 10720,
+    11490, 12310, 13200, 14140, 15160, 16250, 17410, 18660,
+]
+
+
 # ---------------------------------------------------------------------------
 # Internal board state
 # ---------------------------------------------------------------------------
@@ -162,6 +228,62 @@ class SimBoard:
         blob  = struct.pack(">I", size_bytes)
         blob += struct.pack("<I", num_floats)
         blob += struct.pack(f"<{num_floats}f", *all_floats)
+        return blob
+
+    def get_rta_blob(self) -> bytes:
+        """Return a /meters/15-compatible RTA blob built from actual channel state.
+
+        Each active (unmuted, non-zero fader) channel contributes to the main
+        bus spectrum according to its fader level, instrument spectral shape, and
+        EQ settings.  Produces a realistic mix shape rather than generic pink noise.
+        Format: 4B big-endian size, 4B little-endian count, 100×2B signed shorts.
+        Each short = dBFS × 256.
+        """
+        with self._lock:
+            channels_snapshot = {ch: dict(params) for ch, params in self._channels.items()}
+
+        mix_linear = [1e-10] * 100
+        for ch_num, params in channels_snapshot.items():
+            on    = params.get('on', 1)
+            fader = params.get('fader', 0.5)
+            if on == 0 or fader < 0.01:
+                continue
+            fader_db = fader_float_to_db(fader)
+            if fader_db < -60.0:
+                continue
+
+            shape         = INSTRUMENT_SHAPES.get(ch_num, DEFAULT_SHAPE)
+            shape_centers = sorted(shape.keys())
+
+            for i, freq_hz in enumerate(RTA_FREQS_HZ):
+                shape_db = _interpolate_shape(freq_hz, shape_centers, shape)
+
+                eq_db = 0.0
+                for b in range(1, 5):
+                    eq_gain = params.get(f'eq_{b}_g', 0.0)
+                    if abs(eq_gain) < 0.1:
+                        continue
+                    eq_freq = _sim_eq_float_to_hz(params.get(f'eq_{b}_f', hz_to_eq_float(1000.0)))
+                    eq_q    = params.get(f'eq_{b}_q', 0.707)
+                    eq_db  += _sim_peaking_db(freq_hz, eq_freq, eq_gain, eq_q)
+
+                channel_linear = 10.0 ** ((fader_db + shape_db + eq_db) / 20.0)
+                mix_linear[i] += channel_linear
+
+        mix_db = [20.0 * math.log10(max(v, 1e-10)) for v in mix_linear]
+        peak   = max(mix_db)
+        if peak > -90.0:
+            offset = -6.0 - peak
+            mix_db = [min(0.0, max(-128.0, v + offset)) for v in mix_db]
+        else:
+            mix_db = [-60.0] * 100
+
+        num_bands  = len(mix_db)
+        shorts     = [max(-32768, min(32767, int(v * 256.0))) for v in mix_db]
+        size_bytes = num_bands * 2
+        blob  = struct.pack(">I", size_bytes)
+        blob += struct.pack("<I", num_bands)
+        blob += struct.pack(f"<{num_bands}h", *shorts)
         return blob
 
 
@@ -413,13 +535,18 @@ class X32Simulator:
                          float(self._board.get_main_fader()), 1, 0.0)
 
     def _handle_batchsubscribe(self, client_address, address, *args):
-        """Start pushing meter blobs to this client every 50ms."""
-        alias = args[0] if args else "/meters"
+        """Start pushing meter blobs to this client every 50ms.
+
+        Routes to get_rta_blob() for RTA aliases (alias contains 'rta'),
+        get_meter_blob() for everything else (/foh_meters, /meters/1, etc.).
+        """
+        alias  = args[0] if args else "/meters"
+        is_rta = 'rta' in str(alias).lower()
         self._clients.add(client_address)
 
-        def push_meters(addr=alias, ca=client_address):
+        def push_meters(addr=alias, ca=client_address, rta=is_rta):
             while self._running and ca in self._clients:
-                blob = self._board.get_meter_blob()
+                blob = self._board.get_rta_blob() if rta else self._board.get_meter_blob()
                 self._reply(ca, addr, blob)
                 time.sleep(0.05)
 
